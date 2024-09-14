@@ -1,9 +1,7 @@
-package main.java.btree4j.server;
+package btree4j.server;
 
 import java.net.InetSocketAddress;
 import java.util.List;
-
-
 import com.alibaba.otter.canal.client.CanalConnectors;
 import com.alibaba.otter.canal.client.CanalConnector;
 import com.alibaba.otter.canal.common.utils.AddressUtils;
