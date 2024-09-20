@@ -27,7 +27,7 @@ public static void main(String args[]) {
         connector.connect();
         connector.subscribe(".*\\..*");
         connector.rollback();
-        int totalEmptyCount = 120;
+        int totalEmptyCount = 11120;
         while (emptyCount < totalEmptyCount) {
             Message message = connector.getWithoutAck(batchSize); // 获取指定数量的数据
             long batchId = message.getId();

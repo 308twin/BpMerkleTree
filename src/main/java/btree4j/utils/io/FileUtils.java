@@ -50,6 +50,11 @@ public final class FileUtils {
         return new File(tmpdir);
     }
 
+    public static File getFileDir(){
+        String userDir = System.getProperty("user.dir");
+        return new File(userDir);
+    }
+
     public static long getFileSize(File file) {
         if (!file.exists()) {
             return -1L;

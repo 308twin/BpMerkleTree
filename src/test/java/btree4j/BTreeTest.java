@@ -20,7 +20,7 @@ import btree4j.utils.io.FileUtils;
 import btree4j.utils.lang.PrintUtils;
 
 import java.io.File;
-import java.util.HashMap;
+import java.util.*;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -33,7 +33,7 @@ public class BTreeTest {
 
     @Test
     public void test() throws BTreeException {
-        File tmpDir = FileUtils.getTempDir();
+        File tmpDir = FileUtils.getFileDir();
         Assert.assertTrue(tmpDir.exists());
         File tmpFile = new File(tmpDir, "BTreeTest1.idx");
         tmpFile.deleteOnExit();
@@ -42,39 +42,123 @@ public class BTreeTest {
         }
 
         BTree btree = new BTree(tmpFile);
-        btree.init(/* bulkload */ false);
+        btree.init(/* bulkload */ true);
+        System.out.println(btree.getRootMerkleHash());
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 100; i <= 500; i++) {
             Value k = new Value("k" + i);
             long v = 2;
             btree.addValue(k, v);
             System.out.println(btree.getRootMerkleHash());
 
         }
+        // btree.flush();
 
         System.out.println(btree.getRootMerkleHash());
+        btree.visualizeBTree();
 
-//        for (int i = 0; i < 1000; i++) {
-//            Value k = new Value("k" + i);
-//            long expected = i;
-//            long actual = btree.findValue(k);
-//            Assert.assertEquals(expected, actual);
-//        }
-//
-//        btree.search(new IndexConditionBW(new Value("k" + 900), new Value("k" + 910)),
-//            new BTreeCallback() {
-//
-//                @Override
-//                public boolean indexInfo(Value value, long pointer) {
-//                    //System.out.println(pointer);
-//                    return true;
-//                }
-//
-//                @Override
-//                public boolean indexInfo(Value key, byte[] value) {
-//                    throw new UnsupportedOperationException();
-//                }
-//            });
+        // for (int i = 0; i < 1000; i++) {
+        // Value k = new Value("k" + i);
+        // long expected = i;
+        // long actual = btree.findValue(k);
+        // Assert.assertEquals(expected, actual);
+        // }
+        //
+        // btree.search(new IndexConditionBW(new Value("k" + 900), new Value("k" +
+        // 910)),
+        // new BTreeCallback() {
+        //
+        // @Override
+        // public boolean indexInfo(Value value, long pointer) {
+        // //System.out.println(pointer);
+        // return true;
+        // }
+        //
+        // @Override
+        // public boolean indexInfo(Value key, byte[] value) {
+        // throw new UnsupportedOperationException();
+        // }
+        // });
+    }
+
+    @Test
+    public void testDiffInsert() throws BTreeException {
+        File tmpDir = FileUtils.getFileDir();
+        Assert.assertTrue(tmpDir.exists());
+        File tmpFile = new File(tmpDir, "BTreeTest1.idx");
+        tmpFile.deleteOnExit();
+        if (tmpFile.exists()) {
+            Assert.assertTrue(tmpFile.delete());
+        }
+
+        BTree btree = new BTree(tmpFile);
+        btree.init(/* bulkload */ true);
+       
+        for (int i = 999; i >= 100; i--) {
+            Value k = new Value("k" + i);
+            System.out.println(k);
+            long v = i;
+            btree.addValue(k, v);
+            System.out.println(btree.getRootMerkleHash());
+    
+        }
+        btree.visualizeBTree();
+
+
+    }
+
+    @Test
+    public void testDiffInsert2() throws BTreeException {
+        File tmpDir = FileUtils.getFileDir();
+        Assert.assertTrue(tmpDir.exists());
+        File tmpFile = new File(tmpDir, "BTreeTest1.idx");
+        tmpFile.deleteOnExit();
+        if (tmpFile.exists()) {
+            Assert.assertTrue(tmpFile.delete());
+        }
+
+        BTree btree = new BTree(tmpFile);
+        btree.init(/* bulkload */ true);
+       
+        for (int i = 100; i <= 999; i++) {
+            Value k = new Value("k" + i);
+            System.out.println(k);
+            long v = i;
+            btree.addValue(k, v);
+            System.out.println(btree.getRootMerkleHash());
+    
+            }
+
+    }
+
+    @Test
+    public void testRandomInsert() throws BTreeException {
+        File tmpDir = FileUtils.getFileDir();
+        Assert.assertTrue(tmpDir.exists());
+        File tmpFile = new File(tmpDir, "BTreeTest1.idx");
+        tmpFile.deleteOnExit();
+        if (tmpFile.exists()) {
+            Assert.assertTrue(tmpFile.delete());
+        }
+
+        BTree btree = new BTree(tmpFile);
+        btree.init(/* bulkload */ true);
+        Random random = new Random();
+        Set<Integer> generatedNumbers = new HashSet<>();
+        
+        // 循环直到生成完所有数字
+        while (generatedNumbers.size() < 999) {
+            int num = random.nextInt(999) + 1;  // 生成1到999之间的随机数
+            if (!generatedNumbers.contains(num)) {
+                generatedNumbers.add(num);
+                Value k = new Value("k" + num);
+            btree.addValue(k, num);
+            }
+            
+        }
+
+        btree.visualizeBTree();
+
     }
 
     @Test
@@ -98,13 +182,13 @@ public class BTreeTest {
             btree.addValue(key, val);
             if (i % 10000 == 0) {
                 kv.put(key, val);
-                //println("put k: " +z key + ", v: " + val);
+                // println("put k: " +z key + ", v: " + val);
             }
             Assert.assertEquals(val, btree.findValue(key));
 
-            //if (i % 1000000 == 0) {
-            //    btree.flush();
-            //}
+            // if (i % 1000000 == 0) {
+            // btree.flush();
+            // }
         }
         btree.flush(true, true);
         btree.close();
@@ -121,7 +205,7 @@ public class BTreeTest {
             long result = btree.findValue(k);
             Assert.assertNotEquals("key is not registered: " + k, BTree.KEY_NOT_FOUND, result);
             Assert.assertEquals("Exexpected value '" + result + "' found for key: " + k,
-                v.longValue(), result);
+                    v.longValue(), result);
         }
     }
 

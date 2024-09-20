@@ -48,7 +48,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnegative;
@@ -61,6 +60,8 @@ import org.apache.commons.logging.LogFactory;
 /**
  * BTree represents a Variable Magnitude Simple-Prefix B+Tree File.
  */
+import java.util.*;
+
 public class BTree extends Paged {
     private String rootMerkleHash;
     private static final Log LOG = LogFactory.getLog(BTree.class);
@@ -147,6 +148,18 @@ public class BTree extends Paged {
 
     public String getRootMerkleHash() throws BTreeException {
         return getRootNode(_rootInfo).getMerkleHash();
+    }
+
+    public void level0rderTraversal() throws BTreeException {
+        getRootNode(_rootInfo).levelOrderTraversal();
+    }
+
+    public void visualizeBTree() throws BTreeException {
+        getRootNode(_rootInfo).visualizeBTree();
+    }
+
+    public BTreeNode getRootNode() throws BTreeException {
+        return getRootNode(_rootInfo);
     }
 
     private static final class Synchronizer implements Cleaner<BTreeNode> {
@@ -540,14 +553,14 @@ public class BTree extends Paged {
             this.ph = (BTreePageHeader) page.getPageHeader();
             ph.setParent(parentNode);
             this.parentCache = parentNode;
-            this.merkleHash = Utils.calculateMD5("test");
+            this.merkleHash = "";
         }
 
         protected BTreeNode(final BTreeRootInfo root, final Page page) {
             this.root = root;
             this.page = page;
             this.ph = (BTreePageHeader) page.getPageHeader();
-            this.merkleHash = Utils.calculateMD5("test");
+            this.merkleHash = "";
         }
 
         public String getMerkleHash() {
@@ -583,11 +596,11 @@ public class BTree extends Paged {
         private void calChildMerkleHash() throws BTreeException {
 
             StringBuilder sb = new StringBuilder(this.keys.length * 16);
-            for (int i = 0; i < this.keys.length+1; i++) {
+            for (int i = 0; i < this.keys.length + 1; i++) {
                 sb.append(getChildNode(i).merkleHash);
             }
             this.merkleHash = Utils.fnv1aHash(sb.toString());
-            
+
         }
 
         private void calMerkleHash() throws BTreeException {
@@ -655,6 +668,63 @@ public class BTree extends Paged {
                 default:
                     throw new BTreeCorruptException("Invalid Page Type '" + ph.getStatus()
                             + "' was detected for page#" + page.getPageNum());
+            }
+        }
+
+        public void visualizeBTree() throws BTreeException {
+            Queue<BTreeNode> queue = new LinkedList<>();
+            queue.add(getRootNode());
+
+            int level = 0; // 用来记录层次
+            while (!queue.isEmpty()) {
+                int levelSize = queue.size(); // 当前层节点的数量
+                System.out.println("Level " + level + ":");
+
+                for (int i = 0; i < levelSize; i++) {
+                    BTreeNode current = queue.poll();
+
+                    // 打印当前节点的keys
+                    System.out.print("[ ");
+                    for (int j = 0; j < current.keys.length; j++) {
+                        System.out.print(current.keys[j] + " ");
+                    }
+                    System.out.print("] ");
+
+                    // 如果是分支节点，将子节点加入队列
+                    if (current.ph.getStatus() == BRANCH) {
+                        System.out.print(" -> ");
+                        for (int j = 0; j < current.ptrs.length; j++) {
+                            BTreeNode child = getBTreeNode(_rootInfo, current.ptrs[j]);
+                            queue.add(child);
+                            System.out.print(" Child " + current.ptrs[j] + " ");
+                        }
+                    }
+                    System.out.println();
+                }
+                level++;
+                System.out.println(); // 每层打印结束后换行
+            }
+        }
+
+        public void levelOrderTraversal() throws BTreeException {
+            Queue<BTreeNode> queue = new LinkedList<>();
+            queue.add(getRootNode());
+
+            while (!queue.isEmpty()) {
+                BTreeNode current = queue.poll();
+
+                // 打印当前节点的keys
+                for (int i = 0; i < current.keys.length; i++) {
+                    System.out.println("Key: " + current.keys[i]);
+                }
+
+                // 如果是分支节点，将子节点加入队列
+                if (current.ph.getStatus() == BRANCH) {
+                    for (int i = 0; i < current.ptrs.length; i++) {
+                        BTreeNode child = getBTreeNode(_rootInfo, current.ptrs[i]);
+                        queue.add(child);
+                    }
+                }
             }
         }
 
@@ -734,6 +804,15 @@ public class BTree extends Paged {
                         long oldPtr = ptrs[leftIdx];
                         set(ArrayUtils.remove(keys, leftIdx), ArrayUtils.remove(ptrs, leftIdx));
                         decrDataLength(searchKey);
+
+                        calMerkleHash();
+                        // 处理递归更新父节点merkleHash的逻辑，直到根节点
+                        BTreeNode parent = getParent();
+                        while (parent != null) {
+                            parent.calMerkleHash();
+                            parent = parent.getParent();
+                        }
+
                         return oldPtr;
                     }
                 default:
@@ -764,6 +843,15 @@ public class BTree extends Paged {
                             if (p == pointer) {
                                 set(ArrayUtils.remove(keys, i), ArrayUtils.remove(ptrs, i));
                                 decrDataLength(searchKey);
+
+                                calMerkleHash();
+                                // 处理递归更新父节点merkleHash的逻辑，直到根节点
+                                BTreeNode parent = getParent();
+                                while (parent != null) {
+                                    parent.calMerkleHash();
+                                    parent = parent.getParent();
+                                }
+
                                 i--;
                                 rightIdx--;
                             }
@@ -808,7 +896,8 @@ public class BTree extends Paged {
             // actual datalen is smaller than this datalen, because prefix is used.
             int datalen = calculateDataLength();
             int worksize = _fileHeader.getWorkSize();
-            return datalen > worksize;
+            //return this.ptrs.length > 100;
+             return datalen > worksize;
         }
 
         /**
@@ -881,12 +970,14 @@ public class BTree extends Paged {
                 // This can only happen if this is the root
                 BTreeNode lNode = createBTreeNode(root, pageType, this);
                 lNode.set(leftVals, leftPtrs); // 设置左节点的值和指针
+                lNode.currentDataLen = 0;
                 lNode.calculateDataLength();
                 lNode.setAsParent(); // 由于值和指针都改变了，需要将值和指针对应的节点的父节点设置为当前节点
                 // lNode.calMerkleHash();
 
                 BTreeNode rNode = createBTreeNode(root, pageType, this);
                 rNode.set(rightVals, rightPtrs);
+                rNode.currentDataLen = 0;
                 rNode.calculateDataLength();
                 rNode.setAsParent();
                 // lNode.calMerkleHash();
@@ -901,14 +992,7 @@ public class BTree extends Paged {
                         new long[] { lNode.page.getPageNum(), rNode.page.getPageNum() });
                 calculateDataLength();
             } else {
-                // switch (pageType) { // 分裂节点
-                // case BRANCH: {
-                // }
-                // case LEAF: { //根据key更新merkleHash
 
-                // }
-
-                // }
                 set(leftVals, leftPtrs); // 设置左节点的值和指针
                 calculateDataLength();
 
@@ -1178,9 +1262,9 @@ public class BTree extends Paged {
 
         // 计算节点的数据长度，包括前缀长度、键长度、指针长度、merkleHash长度，来确定是否要分页
         private int calculateDataLength() {
-            if (currentDataLen > 0) {
-                return currentDataLen;
-            }
+            // if (currentDataLen > 0) {
+            // return currentDataLen;
+            // }
             final int vlen = keys.length;
             final short prefixlen = ph.getPrefixLength();
             int datalen = prefixlen + (vlen >>> 2) /* key size */;

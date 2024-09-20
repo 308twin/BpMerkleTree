@@ -1,0 +1,15 @@
+server:
+  port: 9090
+my:
+  custom:
+    config:
+      isServer: true  # 如果为 true，则启动 Server；如果为 false，则启动 Client
+
+socket:
+  server:
+    ip: 127.0.0.1
+    port: 8080
+    uri: "ws://localhost:8080/ws"  # 服务器的 WebSocket URI
+  client:
+    ip: 127.0.0.1
+    port: 8080

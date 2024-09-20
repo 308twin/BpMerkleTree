@@ -16,6 +16,10 @@ public class Utils {
     private static MessageDigest md;
     private static final long FNV_PRIME = 0x100000001b3L;
     private static final long FNV_OFFSET_BASIS = 0xcbf29ce484222325L;
+    private static long lastTime = 0;
+    private static int sequence = 0;
+    private static final int MAX_SEQUENCE = 9999;
+    
     static {
         try {
             // 只创建一次MessageDigest实例
@@ -23,6 +27,28 @@ public class Utils {
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
+    }
+
+    
+
+    public synchronized long generateUniqueTimestamp() {
+        long currentTime = System.currentTimeMillis();
+
+        if (currentTime == lastTime) {
+            sequence++;
+            if (sequence > MAX_SEQUENCE) {
+                // 如果序列号超过最大值，等待下一个毫秒
+                while (currentTime == lastTime) {
+                    currentTime = System.currentTimeMillis();
+                }
+                sequence = 0;
+            }
+        } else {
+            sequence = 0;
+            lastTime = currentTime;
+        }
+
+        return currentTime * 10000 + sequence; // 扩展时间戳，包含序列号
     }
 
     public static String calculateMD5(String input) {
@@ -43,8 +69,6 @@ public class Utils {
 
         return sb.toString();
     }
-
-    
 
     public static String fnv1aHash(String input) {
         long hash = FNV_OFFSET_BASIS;
