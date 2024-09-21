@@ -14,7 +14,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
 
-@Component
+//@Component
 public class CanalClient implements InitializingBean {
 
     private final static int BATCH_SIZE = 1000;

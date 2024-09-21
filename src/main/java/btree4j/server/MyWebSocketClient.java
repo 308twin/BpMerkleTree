@@ -1,5 +1,7 @@
 package btree4j.server;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
@@ -8,14 +10,13 @@ import org.springframework.web.socket.CloseStatus;
 import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 
+@Component
+@ConditionalOnProperty(name = "my.custom.config.isServer", havingValue = "false")
 public class MyWebSocketClient {
 
     @Value("${socket.server.uri}")
-    private final String serverUri;
+    private String serverUri;
 
-    public MyWebSocketClient(String serverUri) {
-        this.serverUri = serverUri;
-    }
 
     @PostConstruct
     public void startClient() {

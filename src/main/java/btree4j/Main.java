@@ -7,8 +7,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@ComponentScan(basePackages = {"btree4j"})
-
 public class Main {
     public static void main(String[] args) {
         SpringApplication.run(Main.class, args);

@@ -8,6 +8,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.Nullable;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -23,7 +24,7 @@ public class WebSocketApp implements WebSocketConfigurer {
     private final MyWebSocketHandler webSocketHandler;
     private final MyWebSocketClient webSocketClient;
 
-    public WebSocketApp(MyWebSocketHandler webSocketHandler, MyWebSocketClient webSocketClient) {
+    public WebSocketApp(MyWebSocketHandler webSocketHandler, @Nullable MyWebSocketClient webSocketClient) {
         this.webSocketHandler = webSocketHandler;
         this.webSocketClient = webSocketClient;
     }
