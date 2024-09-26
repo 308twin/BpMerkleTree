@@ -30,7 +30,7 @@ public class CompareService {
     private ConcurrentHashMap<String, Boolean> isConcistByMerkleHash;
     private ConcurrentHashMap<String, BTree> localBTrees;
     private ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord;
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinReocrds;
+    private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Boolean> isConcistByRecord;
 
@@ -40,7 +40,7 @@ public class CompareService {
             ConcurrentHashMap<String, BTree> localBTrees,
             ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord,
             ConcurrentHashMap<String, Boolean> isConcistByMerkleHash,
-            @Qualifier("remoteBinReocrds") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinReocrds,
+            @Qualifier("remoteBinRecords") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             @Qualifier("localBinRecords") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
             ConcurrentHashMap<String, Boolean> isConcistByRecord) {
         this.localHashs = localHashs;
@@ -48,7 +48,7 @@ public class CompareService {
         this.localBTrees = localBTrees;
         this.aboutToInsertRecord = aboutToInsertRecord;
         this.isConcistByMerkleHash = isConcistByMerkleHash;
-        this.remoteBinReocrds = remoteBinReocrds;
+        this.remoteBinRecords = remoteBinRecords;
         this.localBinRecords = localBinRecords;
         this.isConcistByRecord = isConcistByRecord;
     }
@@ -149,7 +149,7 @@ public class CompareService {
      */
     public void isConcistByRecord(String dbAndTable) {
         ConcurrentHashMap<String, TypeWithTime> localRecords = localBinRecords.get(dbAndTable);
-        ConcurrentHashMap<String, TypeWithTime> remoteRecords = remoteBinReocrds.get(dbAndTable);
+        ConcurrentHashMap<String, TypeWithTime> remoteRecords = remoteBinRecords.get(dbAndTable);
 
         if (localRecords == null && remoteRecords == null) {
             isConcistByRecord.put(dbAndTable, true);

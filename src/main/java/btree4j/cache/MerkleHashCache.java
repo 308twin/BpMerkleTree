@@ -42,23 +42,13 @@ public class MerkleHashCache {
         return new ConcurrentHashMap<>();
     }
 
-    // @Bean("orderedTreemap")
-    // public Map<Long,String> orderedTreemap() {
-    //     return new  TreeMap<>(new Comparator<Long>() {
-    //         @Override
-    //         public int compare(Long o1, Long o2) {
-    //             // 升序
-    //             return o1.compareTo(o2);
-    //         }
-    //     });
-    // }
 
 
     //key : dbname__tablename
     //value : key ,typeWithTime
 
-    @Bean("remoteBinRocrds")
-    public ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> remoteBinReocrds() {
+    @Bean("remoteBinRecords")
+    public ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> remoteBinRecords() {
         return new ConcurrentHashMap<>();
     }
 
