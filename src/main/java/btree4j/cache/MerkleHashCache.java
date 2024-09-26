@@ -6,7 +6,7 @@ import btree4j.BTree;
 import btree4j.entity.MerkleHashEntity;
 import btree4j.entity.TypeWithTime;
 
-import org.jboss.netty.util.internal.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.annotation.Bean;
 import java.time.format.DateTimeFormatter;
 
@@ -56,6 +56,7 @@ public class MerkleHashCache {
 
     //key : dbname__tablename
     //value : key ,typeWithTime
+
     @Bean("remoteBinRocrds")
     public ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> remoteBinReocrds() {
         return new ConcurrentHashMap<>();

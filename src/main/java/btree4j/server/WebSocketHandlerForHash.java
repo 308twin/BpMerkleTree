@@ -7,7 +7,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class MyWebSocketHandler extends TextWebSocketHandler {
+public class WebSocketHandlerForHash extends TextWebSocketHandler {
 
     // 使用 ConcurrentHashMap 维护客户端连接
     private static final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();

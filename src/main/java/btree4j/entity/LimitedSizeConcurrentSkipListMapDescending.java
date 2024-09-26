@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 public class LimitedSizeConcurrentSkipListMapDescending extends ConcurrentSkipListMap<Long, String> {
     private final int maxSize;
 
+    // masSize default = 200000
     public LimitedSizeConcurrentSkipListMapDescending(int maxSize) {
         super(new Comparator<Long>() {
             @Override

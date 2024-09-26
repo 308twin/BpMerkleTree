@@ -1,7 +1,7 @@
 package btree4j.service;
 
 import java.io.File;
-import org.jboss.netty.util.internal.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import btree4j.BTree;
 import btree4j.BTreeException;
-import btree4j.Value; 
+import btree4j.Value;
 import btree4j.entity.LimitedSizeConcurrentSkipListMapDescending;
 import btree4j.entity.MerkleHashEntity;
 import btree4j.entity.TypeWithTime;
@@ -25,23 +25,24 @@ public class CompareService {
     private String timeFram;
 
     private boolean isServer;
-    private ConcurrentHashMap<String,Map> localHashs;
-    private ConcurrentHashMap<String,Map> remoteHashs;
-    private ConcurrentHashMap<String,Boolean> isConcistByMerkleHash;
+    private ConcurrentHashMap<String, Map> localHashs;
+    private ConcurrentHashMap<String, Map> remoteHashs;
+    private ConcurrentHashMap<String, Boolean> isConcistByMerkleHash;
     private ConcurrentHashMap<String, BTree> localBTrees;
     private ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord;
-    private ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> remoteBinReocrds;
-    private ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> localBinRecords;
-    private ConcurrentHashMap<String,Boolean> isConcistByRecord;
+    private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinReocrds;
+    private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
+    private ConcurrentHashMap<String, Boolean> isConcistByRecord;
 
     @Autowired
-    public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String,Map> localHashs,
-    ConcurrentHashMap<String,Map> remoteHashs, ConcurrentHashMap<String, BTree> localBTrees,
+    public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
+            ConcurrentHashMap<String, Map> remoteHashs,
+            ConcurrentHashMap<String, BTree> localBTrees,
             ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord,
             ConcurrentHashMap<String, Boolean> isConcistByMerkleHash,
-            ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> remoteBinReocrds,
-            ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> localBinRecords,
-            ConcurrentHashMap<String,Boolean> isConcistByRecord) {
+            @Qualifier("remoteBinReocrds") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinReocrds,
+            @Qualifier("localBinRecords") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
+            ConcurrentHashMap<String, Boolean> isConcistByRecord) {
         this.localHashs = localHashs;
         this.remoteHashs = remoteHashs;
         this.localBTrees = localBTrees;
@@ -72,7 +73,7 @@ public class CompareService {
             tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(200000);
             localHashs.put(dbAndTable, tableHashHistorys);
         }
-        //current time to long
+        // current time to long
         long time = System.currentTimeMillis();
         tableHashHistorys.put(time, hash);
     }
@@ -114,7 +115,7 @@ public class CompareService {
     // 如果比较到timeFram之前的时间都没有一致的hash，则更新isConcistByMerkleHash对应的值为false
     // 如果remoteHashs中的hash和localHashs中的hash都为空，则不修改isConcistByMerkleHash对应的值
     // 最后，把localHashs和remoteHashs中的数据清空
-    public void isConcistByMerkleHash(String dbAndTable){
+    public void isConcistByMerkleHash(String dbAndTable) {
         Map<Long, String> localHashsMap = localHashs.get(dbAndTable);
         Map<Long, String> remoteHashsMap = remoteHashs.get(dbAndTable);
         if (localHashsMap == null && remoteHashsMap == null) {
@@ -143,17 +144,18 @@ public class CompareService {
 
     /*
      * 如果remoteBinRecords中的记录和localBinRecords中的记录为空，则更新isConcistByRecord对应的值为true
-     * 如果remoteBinRecords中的最旧的记录和localBinRecords中最旧的记录有时间(超过当前时间-timeFram)的记录，则更新isConcistByRecord对应的值为false
+     * 如果remoteBinRecords中的最旧的记录和localBinRecords中最旧的记录有时间(超过当前时间-timeFram)的记录，
+     * 则更新isConcistByRecord对应的值为false
      */
-    public void isConcistByRecord(String dbAndTable){
-        ConcurrentHashMap<String,TypeWithTime> localRecords = localBinRecords.get(dbAndTable);
-        ConcurrentHashMap<String,TypeWithTime> remoteRecords = remoteBinReocrds.get(dbAndTable);
-        
+    public void isConcistByRecord(String dbAndTable) {
+        ConcurrentHashMap<String, TypeWithTime> localRecords = localBinRecords.get(dbAndTable);
+        ConcurrentHashMap<String, TypeWithTime> remoteRecords = remoteBinReocrds.get(dbAndTable);
+
         if (localRecords == null && remoteRecords == null) {
             isConcistByRecord.put(dbAndTable, true);
             return;
         }
-        //遍历localRecords,如果localRecord中的TypeWithTime的值存在于remoteRecords中，则删除localRecord中的TypeWithTime，以及remoteRecords中的TypeWithTime
+        // 遍历localRecords,如果localRecord中的TypeWithTime的值存在于remoteRecords中，则删除localRecord中的TypeWithTime，以及remoteRecords中的TypeWithTime
         if (localRecords != null && remoteRecords != null) {
             for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
                 String key = entry.getKey();
@@ -165,10 +167,13 @@ public class CompareService {
             }
         }
 
-        Long remoteOldestTime = remoteRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo).orElse(Long.MAX_VALUE);
-        Long localOldestTime = localRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo).orElse(Long.MAX_VALUE);
+        Long remoteOldestTime = remoteRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo)
+                .orElse(Long.MAX_VALUE);
+        Long localOldestTime = localRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo)
+                .orElse(Long.MAX_VALUE);
         Long curTime = System.currentTimeMillis();
-        if (remoteOldestTime < curTime - Long.parseLong(timeFram) || localOldestTime < curTime - Long.parseLong(timeFram)) {
+        if (remoteOldestTime < curTime - Long.parseLong(timeFram)
+                || localOldestTime < curTime - Long.parseLong(timeFram)) {
             isConcistByRecord.put(dbAndTable, false);
         } else {
             isConcistByRecord.put(dbAndTable, true);
@@ -178,11 +183,11 @@ public class CompareService {
     /*
      * 如果当前是client端，接受到remoteRecord之后，则将remoteRecord对应的localRecord删除
      */
-    public void matchRecord(String dbAndTable,String key,TypeWithTime remoteRecord) {
-        ConcurrentHashMap<String,TypeWithTime> localRecords = localBinRecords.get(dbAndTable);
+    public void matchRecord(String dbAndTable, String key, TypeWithTime remoteRecord) {
+        ConcurrentHashMap<String, TypeWithTime> localRecords = localBinRecords.get(dbAndTable);
         if (localRecords != null) {
             TypeWithTime localTypeWithTime = localRecords.get(key);
-            if(localTypeWithTime != null && localTypeWithTime.equals(remoteRecord)){
+            if (localTypeWithTime != null && localTypeWithTime.equals(remoteRecord)) {
                 localRecords.remove(key);
             }
         }
