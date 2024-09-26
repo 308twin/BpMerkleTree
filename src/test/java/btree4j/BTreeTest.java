@@ -55,7 +55,7 @@ public class BTreeTest {
         // btree.flush();
 
         System.out.println(btree.getRootMerkleHash());
-        btree.visualizeBTree();
+        //btree.visualizeBTree();
 
         // for (int i = 0; i < 1000; i++) {
         // Value k = new Value("k" + i);

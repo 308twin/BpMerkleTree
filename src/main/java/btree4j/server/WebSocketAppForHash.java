@@ -16,15 +16,15 @@ import org.springframework.context.annotation.ComponentScan;
 
 @Configuration
 @EnableWebSocket
-public class WebSocketApp implements WebSocketConfigurer {
+public class WebSocketAppForHash implements WebSocketConfigurer {
 
     @Value("${my.custom.config.isServer:false}") // 默认值为 false
     private boolean isServer;
 
-    private final MyWebSocketHandler webSocketHandler;
-    private final MyWebSocketClient webSocketClient;
+    private final WebSocketHandlerForHash webSocketHandler;
+    private final WebSocketClientForHash webSocketClient;
 
-    public WebSocketApp(MyWebSocketHandler webSocketHandler, @Nullable MyWebSocketClient webSocketClient) {
+    public WebSocketAppForHash(WebSocketHandlerForHash webSocketHandler, @Nullable WebSocketClientForHash webSocketClient) {
         this.webSocketHandler = webSocketHandler;
         this.webSocketClient = webSocketClient;
     }
@@ -41,10 +41,10 @@ public class WebSocketApp implements WebSocketConfigurer {
     @PostConstruct
     public void init() {
         if (isServer) {
-            System.out.println("Running as WebSocket Server");
+            System.out.println("Running as WebSocket Server for Hash");
             // 服务器端的 WebSocket 处理由 `registerWebSocketHandlers` 自动注册
         } else {
-            System.out.println("Running as WebSocket Client");
+            System.out.println("Running as WebSocket Client for Hash");
             // 启动 WebSocket 客户端
             webSocketClient.startClient();
         }

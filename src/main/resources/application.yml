@@ -4,12 +4,23 @@ my:
   custom:
     config:
       isServer: true  # 如果为 true，则启动 Server；如果为 false，则启动 Client
+      timeFram: 10      #时间范围
+
 
 socket:
   server:
     ip: 127.0.0.1
     port: 8080
-    uri: "ws://localhost:8080/ws"  # 服务器的 WebSocket URI
+    uriForHash: "ws://localhost:8080/ws/hash"  # 服务器的 WebSocket URI
+    uriForRecord: "ws://localhost:8080/ws/record"  # 服务器的 WebSocket URI
   client:
     ip: 127.0.0.1
     port: 8080
+canal:
+  server: 172.18.0.1   # 替换为你的Canal服务器地址
+  port: 11111         # 替换为你的Canal服务器端口
+  destination: example  # Canal实例名
+  username:           # 如果需要用户名，填写；如果不需要，可以留空
+  password:           # 如果需要密码，填写；如果不需要，可以留空
+  subscription: ".*\\..*"  # 正则表达式，匹配要订阅的库和表，默认为订阅所有库表
+

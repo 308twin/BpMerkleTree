@@ -16,8 +16,8 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SQLInertEntity implements java.io.Serializable {
+public class RecordInsertEntity implements java.io.Serializable {
     private String dbName;
     private String tableName;
-    private String sql;
+    private String key;
 }

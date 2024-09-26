@@ -11,6 +11,10 @@ package btree4j.utils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
+//import btree4j.utils.lang.DateTimeFormatter;
 
 public class Utils {
     private static MessageDigest md;
@@ -19,7 +23,14 @@ public class Utils {
     private static long lastTime = 0;
     private static int sequence = 0;
     private static final int MAX_SEQUENCE = 9999;
-    
+    // 缓存 DateTimeFormatter 实例
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
+    public static long convertStringToLong(String dateString) {
+        LocalDateTime localDateTime = LocalDateTime.parse(dateString, formatter);
+        // 将 LocalDateTime 转为 long 类型的时间戳（以毫秒为单位）
+        return localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
     static {
         try {
             // 只创建一次MessageDigest实例

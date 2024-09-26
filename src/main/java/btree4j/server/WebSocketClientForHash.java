@@ -12,9 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 
 @Component
 @ConditionalOnProperty(name = "my.custom.config.isServer", havingValue = "false")
-public class MyWebSocketClient {
+public class WebSocketClientForHash {
 
-    @Value("${socket.server.uri}")
+    @Value("${socket.server.uriForHash}")
     private String serverUri;
 
 
@@ -23,27 +23,27 @@ public class MyWebSocketClient {
         StandardWebSocketClient client = new StandardWebSocketClient();
         try {
             WebSocketSession session = client.doHandshake(new MyClientWebSocketHandler(), serverUri).get();
-            System.out.println("Connected to server: " + serverUri);
+            System.out.println("Connected to server(hash): " + serverUri);
         } catch (Exception e) {
-            System.out.println("Failed to connect: " + e.getMessage());
+            System.out.println("Failed to connect(hash): " + e.getMessage());
         }
     }
 
     private class MyClientWebSocketHandler extends TextWebSocketHandler {
         @Override
         public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-            System.out.println("WebSocket Client connected");
-            session.sendMessage(new TextMessage("Hello from Client"));
+            System.out.println("WebSocket Client connected(hash)");
+            session.sendMessage(new TextMessage("Hello from Client(hash)"));
         }
 
         @Override
         protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-            System.out.println("Received from server: " + message.getPayload());
+            System.out.println("Received from server(hash): " + message.getPayload());
         }
 
         @Override
         public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-            System.out.println("WebSocket Client disconnected");
+            System.out.println("WebSocket Client disconnected(hash)");
         }
     }
 }
