@@ -22,10 +22,11 @@ public class CanalClient implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         // 创建链接
-        CanalConnector connector = CanalConnectors.newSingleConnector(new InetSocketAddress("127.0.0.1", 11111), "example", "", "");
+        CanalConnector connector = CanalConnectors.newSingleConnector(new InetSocketAddress("172.18.0.1", 11111), "example", "", "");
         try {
             //打开连接
             connector.connect();
+            System.out.println("CanalClient start");
             //订阅数据库表,全部表
             connector.subscribe(".*\\..*");
             //回滚到未进行ack的地方，下次fetch的时候，可以从最后一个没有ack的地方开始拿

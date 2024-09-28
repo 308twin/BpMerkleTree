@@ -15,21 +15,33 @@ import java.util.*;
 @Configuration
 public class MerkleHashCache {
 
+    // key : dbname__tablename
+    // value : merkleHash
+    // 存储本地生成的历史merkleHash
     @Bean("localHashs")
     public ConcurrentHashMap<String,Map> localHashs() {
         return new ConcurrentHashMap<>();
     }
 
+    // key : dbname__tablename
+    // value : merkleHash
+    // 存储远程生成的历史merkleHash
     @Bean("remoteHashs")
     public ConcurrentHashMap<String,Map> remoteHashs() {
         return new ConcurrentHashMap<>();
     }
 
+    // key : dbname__tablename
+    // value : Boolean
+    // 存储本地和远程merkleHash是否一致
     @Bean("isConcistByMerkleHash")
     public ConcurrentHashMap<String,Boolean> isConcistByMerkleHash() {
         return new ConcurrentHashMap<>();
     }
 
+    // key : dbname__tablename
+    // value : Boolean
+    // 存储本地和远程record是否一致
     @Bean("isConcistByRecord")
     public ConcurrentHashMap<String,Boolean> isConcistByRecord() {
         return new ConcurrentHashMap<>();
@@ -37,21 +49,23 @@ public class MerkleHashCache {
     
     // key : dbname__tablename
     // value : BTree
+    // 存储本地的BTree
     @Bean("localBTrees")
     public ConcurrentHashMap<String,BTree> localBTrees() {
         return new ConcurrentHashMap<>();
     }
 
-
-
     //key : dbname__tablename
     //value : key ,typeWithTime
-
+    //存储远程binlog记录
     @Bean("remoteBinRecords")
     public ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> remoteBinRecords() {
         return new ConcurrentHashMap<>();
     }
 
+    //key : dbname__tablename
+    //value : key ,typeWithTime
+    //存储本地binlog记录
     @Bean("localBinRecords")
     public ConcurrentHashMap<String,ConcurrentHashMap<String,TypeWithTime>> localBinRecords() {
         return new ConcurrentHashMap<>();

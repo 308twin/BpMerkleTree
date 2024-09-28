@@ -3,6 +3,7 @@ package btree4j.server;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.Message;
 
+import btree4j.entity.TypeWithTime;
 import btree4j.service.CompareService;
 
 import com.alibaba.otter.canal.client.CanalConnector;
@@ -14,8 +15,10 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import btree4j.utils.*;;
+
 @Component
 public class CanalMessageListenerWithTaskExecutor {
 
@@ -41,7 +44,7 @@ public class CanalMessageListenerWithTaskExecutor {
     private volatile boolean running = true;
 
     private final Executor canalTaskExecutor;
-    private CompareService  compareService;
+    private CompareService compareService;
 
     public CanalMessageListenerWithTaskExecutor(Executor canalTaskExecutor, CompareService compareService) {
         this.canalTaskExecutor = canalTaskExecutor;
@@ -55,8 +58,7 @@ public class CanalMessageListenerWithTaskExecutor {
                 new InetSocketAddress(canalServer, canalPort),
                 destination,
                 username,
-                password
-        );
+                password);
 
         // 启动监听线程
         new Thread(this::processMessages).start();
@@ -77,12 +79,23 @@ public class CanalMessageListenerWithTaskExecutor {
                 if (batchId == -1 || size == 0) {
                     Thread.sleep(1000); // 没有新消息，稍作休眠
                 } else {
-                    // 将消息提交给线程池处理
+                    // 使用 CountDownLatch 等待所有任务完成
+                    CountDownLatch latch = new CountDownLatch(message.getEntries().size());
                     for (CanalEntry.Entry entry : message.getEntries()) {
                         if (entry.getEntryType() == CanalEntry.EntryType.ROWDATA) {
-                            canalTaskExecutor.execute(() -> handleEntry(entry));
+                            canalTaskExecutor.execute(() -> {
+                                try {
+                                    handleEntry(entry);
+                                } finally {
+                                    latch.countDown();
+                                }
+                            });
+                        } else {
+                            latch.countDown(); // 如果不是 ROWDATA 类型，也要减少计数
                         }
                     }
+                    // 等待所有任务完成
+                    latch.await();
                     // 提交确认
                     connector.ack(batchId);
                 }
@@ -109,7 +122,7 @@ public class CanalMessageListenerWithTaskExecutor {
                             primaryKey = column.getValue(); // 主键字段
                         }
                         if ("update_time_on_chain".equals(column.getName())) {
-                            update_time_on_chain = column.getValue(); // 插入时间,2024-09-23 15:30:31.000
+                            update_time_on_chain = column.getValue(); // 插入时间,like:2024-09-23 15:30:31.000
                         }
                     }
                     // 输出数据库名、表名、主键字段、插入时间
@@ -117,13 +130,22 @@ public class CanalMessageListenerWithTaskExecutor {
                     System.out.println("表名: " + tableName);
                     System.out.println("主键字段: " + primaryKey);
                     System.out.println("插入时间: " + update_time_on_chain);
-                    compareService.addRecordToInsertRecord(dbName + "__" + tableName,Utils.convertStringToLong(update_time_on_chain)  , primaryKey);
-                }else if (rowChange.getEventType() == CanalEntry.EventType.DELETE) {
+                    compareService.addToLocalBinRecords(dbName, tableName, primaryKey, new TypeWithTime(
+                            Utils.convertStringToLong(update_time_on_chain), TypeWithTime.OperationType.INSERT));
+                    // 插入操作是先插入到待插入列表，然后再插入到btree中
+                    compareService.addRecordToInsertRecord(dbName + "__" + tableName,
+                            Utils.convertStringToLong(update_time_on_chain), primaryKey);
+                } else if (rowChange.getEventType() == CanalEntry.EventType.DELETE) {
                     String primaryKey = null;
                     long deleteTime = entry.getHeader().getExecuteTime(); // 删除事件的执行时间
+                    String update_time_on_chain = null;
+
                     for (CanalEntry.Column column : rowData.getBeforeColumnsList()) {
                         if (column.getIsKey()) {
                             primaryKey = column.getValue(); // 获取主键的值
+                        }
+                        if ("update_time_on_chain".equals(column.getName())) {
+                            update_time_on_chain = column.getValue(); // 插入时间,2024-09-23 15:30:31.000
                         }
                     }
                     // 输出数据库名、表名、主键字段、删除时间
@@ -131,7 +153,12 @@ public class CanalMessageListenerWithTaskExecutor {
                     System.out.println("表名: " + tableName);
                     System.out.println("主键字段: " + primaryKey);
                     System.out.println("删除时间: " + String.valueOf(deleteTime));
-                
+                    compareService.addToLocalBinRecords(dbName, tableName, primaryKey,
+                            new TypeWithTime(deleteTime, TypeWithTime.OperationType.DELETE));
+                    // 由于删除操作很少进行，所以直接删除
+                    compareService.removeKeyFromBtree(dbName + "__" + tableName, primaryKey,
+                            Utils.convertStringToLong(update_time_on_chain));
+
                 } else if (rowChange.getEventType() == CanalEntry.EventType.CREATE) {
                     // CREATE事件只需表名
                     System.out.println("表创建: " + tableName);

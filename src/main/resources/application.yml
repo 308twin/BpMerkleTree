@@ -5,17 +5,18 @@ my:
     config:
       isServer: true  # 如果为 true，则启动 Server；如果为 false，则启动 Client
       timeFram: 10      #时间范围
+      localHashMapMaxSize: 200000  # 用以比对的最大容量
 
 
 socket:
   server:
     ip: 127.0.0.1
-    port: 8080
-    uriForHash: "ws://localhost:8080/ws/hash"  # 服务器的 WebSocket URI
-    uriForRecord: "ws://localhost:8080/ws/record"  # 服务器的 WebSocket URI
+    port: 9090
+    uriForHash: "ws://10.176.24.18:9090/ws/hash"  # 服务器的 WebSocket URI
+    uriForRecord: "ws://10.176.24.18:9090/ws/record"  # 服务器的 WebSocket URI
   client:
     ip: 127.0.0.1
-    port: 8080
+    port: 9090
 canal:
   server: 172.18.0.1   # 替换为你的Canal服务器地址
   port: 11111         # 替换为你的Canal服务器端口

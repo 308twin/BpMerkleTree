@@ -1,11 +1,15 @@
 package btree4j.entity;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class TypeWithTime {
     long time;
-    int type;
+    OperationType type;
 
     @Override
     public boolean equals(Object obj) {
@@ -15,4 +19,9 @@ public class TypeWithTime {
         }
         return false;
     }
+
+    public enum OperationType {
+        INSERT, DELETE, UPDATE
+    }
 }
+

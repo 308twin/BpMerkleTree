@@ -29,7 +29,7 @@ public class BPMerkleTreeSchedule {
                     value.remove(entry1.getKey());
                     String newestHash = compareService.getBTreeRootMerkleHash(dbAndTable);
                     compareService.insertHashToLocalHashs(dbAndTable, newestHash);
-                    System.out.println("insert key to btree success,newest btree root hash:"+newestHash);
+                    //System.out.println("insert key to btree success,newest btree root hash:"+newestHash);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

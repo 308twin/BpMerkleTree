@@ -33,7 +33,7 @@ public class WebSocketAppForHash implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         if (isServer) {
             // 如果是服务器模式，注册 WebSocket 处理器
-            registry.addHandler(webSocketHandler, "/ws").setAllowedOrigins("*");
+            registry.addHandler(webSocketHandler, "/ws/hash").setAllowedOrigins("*");
         }
     }
 

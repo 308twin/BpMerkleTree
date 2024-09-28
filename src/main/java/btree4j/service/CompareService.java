@@ -24,6 +24,9 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.timeFram}")
     private String timeFram;
 
+    @org.springframework.beans.factory.annotation.Value("${my.custom.config.localHashMapMaxSize}")
+    private int localHashMapMaxSize;
+
     private boolean isServer;
     private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
@@ -67,10 +70,13 @@ public class CompareService {
         return btree;
     }
 
+    /*
+     * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
+     */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
         Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
         if (tableHashHistorys == null) {
-            tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(200000);
+            tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize); 
             localHashs.put(dbAndTable, tableHashHistorys);
         }
         // current time to long
@@ -82,12 +88,14 @@ public class CompareService {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.addValue(k, time);
+        System.out.println("Success insert key:"+ value +",newest root hash is : " + btree.getRootMerkleHash());
     }
 
     public void removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.removeValue(k, time);
+        System.out.println("Success remove key:"+ value +",newest root hash is : " + btree.getRootMerkleHash());
     }
 
     public String getBTreeRootMerkleHash(String dbAndTable) throws BTreeException {
@@ -95,13 +103,16 @@ public class CompareService {
         return btree.getRootMerkleHash();
     }
 
+
+
+    //将记录插入到待插入列表，使用concurrentSkipListMap存储,排序方式是按照时间戳排序
     public void addRecordToInsertRecord(String dbAndTable, long time, String value) {
         Map<Long, String> valueMap = aboutToInsertRecord.get(dbAndTable); // 获取dbAndTable对应的valueMap
         if (valueMap == null) {
             valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
                 @Override
                 public int compare(Long o1, Long o2) {
-                    return Long.compare(o1, o2); // 使用 Long.compare 进行比较
+                    return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
                 }
             });
             aboutToInsertRecord.put(dbAndTable, valueMap);
@@ -140,6 +151,13 @@ public class CompareService {
         isConcistByMerkleHash.put(dbAndTable, isConcist);
         localHashs.remove(dbAndTable);
         remoteHashs.remove(dbAndTable);
+    }
+
+    public void addToLocalBinRecords(String dbName, String tableName, String key, TypeWithTime typeWithTime) {
+        String dbAndTable = dbName + "__" + tableName;
+        localBinRecords
+            .computeIfAbsent(dbAndTable, k -> new ConcurrentHashMap<>())
+            .put(key, typeWithTime);
     }
 
     /*
