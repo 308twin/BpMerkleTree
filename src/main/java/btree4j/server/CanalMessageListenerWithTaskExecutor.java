@@ -3,6 +3,7 @@ package btree4j.server;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.Message;
 
+import btree4j.BTree;
 import btree4j.entity.TypeWithTime;
 import btree4j.service.CompareService;
 
@@ -17,8 +18,9 @@ import javax.annotation.PreDestroy;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import btree4j.utils.*;;
-
+import btree4j.utils.*;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 @Component
 public class CanalMessageListenerWithTaskExecutor {
 
@@ -45,6 +47,9 @@ public class CanalMessageListenerWithTaskExecutor {
 
     private final Executor canalTaskExecutor;
     private CompareService compareService;
+
+    private static final Log LOG = LogFactory.getLog(CanalMessageListenerWithTaskExecutor.class);
+
 
     public CanalMessageListenerWithTaskExecutor(Executor canalTaskExecutor, CompareService compareService) {
         this.canalTaskExecutor = canalTaskExecutor;
@@ -126,10 +131,10 @@ public class CanalMessageListenerWithTaskExecutor {
                         }
                     }
                     // 输出数据库名、表名、主键字段、插入时间
-                    System.out.println("数据库名: " + dbName);
-                    System.out.println("表名: " + tableName);
-                    System.out.println("主键字段: " + primaryKey);
-                    System.out.println("插入时间: " + update_time_on_chain);
+                    LOG.debug("数据库名: " + dbName);
+                    LOG.debug("表名: " + tableName);
+                    LOG.debug("主键字段: " + primaryKey);
+                    LOG.debug("插入时间: " + update_time_on_chain);
                     compareService.addToLocalBinRecords(dbName, tableName, primaryKey, new TypeWithTime(
                             Utils.convertStringToLong(update_time_on_chain), TypeWithTime.OperationType.INSERT));
                     // 插入操作是先插入到待插入列表，然后再插入到btree中
@@ -149,10 +154,10 @@ public class CanalMessageListenerWithTaskExecutor {
                         }
                     }
                     // 输出数据库名、表名、主键字段、删除时间
-                    System.out.println("数据库名: " + dbName);
-                    System.out.println("表名: " + tableName);
-                    System.out.println("主键字段: " + primaryKey);
-                    System.out.println("删除时间: " + String.valueOf(deleteTime));
+                    LOG.debug("数据库名: " + dbName);
+                    LOG.debug("表名: " + tableName);
+                    LOG.debug("主键字段: " + primaryKey);
+                    LOG.debug("删除时间: " + String.valueOf(deleteTime));
                     compareService.addToLocalBinRecords(dbName, tableName, primaryKey,
                             new TypeWithTime(deleteTime, TypeWithTime.OperationType.DELETE));
                     // 由于删除操作很少进行，所以直接删除
@@ -161,7 +166,7 @@ public class CanalMessageListenerWithTaskExecutor {
 
                 } else if (rowChange.getEventType() == CanalEntry.EventType.CREATE) {
                     // CREATE事件只需表名
-                    System.out.println("表创建: " + tableName);
+                    LOG.debug("表创建: " + tableName);
                 }
             }
         } catch (Exception e) {

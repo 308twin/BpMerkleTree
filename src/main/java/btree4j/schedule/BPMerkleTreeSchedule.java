@@ -37,4 +37,10 @@ public class BPMerkleTreeSchedule {
         }
     }
 
+    @Scheduled(fixedRate = 10000)
+    public void createMqTopic(){
+        List<String> tables = compareService.getAllTableNames();
+        
+    }
+
 }

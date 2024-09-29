@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Service;
-
+import org.springframework.jdbc.core.JdbcTemplate;
 import btree4j.BTree;
 import btree4j.BTreeException;
 import btree4j.Value;
@@ -36,6 +36,9 @@ public class CompareService {
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Boolean> isConcistByRecord;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
@@ -76,7 +79,7 @@ public class CompareService {
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
         Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
         if (tableHashHistorys == null) {
-            tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize); 
+            tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
             localHashs.put(dbAndTable, tableHashHistorys);
         }
         // current time to long
@@ -88,14 +91,14 @@ public class CompareService {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.addValue(k, time);
-        System.out.println("Success insert key:"+ value +",newest root hash is : " + btree.getRootMerkleHash());
+        System.out.println("Success insert key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
     }
 
     public void removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.removeValue(k, time);
-        System.out.println("Success remove key:"+ value +",newest root hash is : " + btree.getRootMerkleHash());
+        System.out.println("Success remove key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
     }
 
     public String getBTreeRootMerkleHash(String dbAndTable) throws BTreeException {
@@ -103,9 +106,7 @@ public class CompareService {
         return btree.getRootMerkleHash();
     }
 
-
-
-    //将记录插入到待插入列表，使用concurrentSkipListMap存储,排序方式是按照时间戳排序
+    // 将记录插入到待插入列表，使用concurrentSkipListMap存储,排序方式是按照时间戳排序
     public void addRecordToInsertRecord(String dbAndTable, long time, String value) {
         Map<Long, String> valueMap = aboutToInsertRecord.get(dbAndTable); // 获取dbAndTable对应的valueMap
         if (valueMap == null) {
@@ -156,8 +157,8 @@ public class CompareService {
     public void addToLocalBinRecords(String dbName, String tableName, String key, TypeWithTime typeWithTime) {
         String dbAndTable = dbName + "__" + tableName;
         localBinRecords
-            .computeIfAbsent(dbAndTable, k -> new ConcurrentHashMap<>())
-            .put(key, typeWithTime);
+                .computeIfAbsent(dbAndTable, k -> new ConcurrentHashMap<>())
+                .put(key, typeWithTime);
     }
 
     /*
@@ -209,5 +210,11 @@ public class CompareService {
                 localRecords.remove(key);
             }
         }
+    }
+
+    // 执行查询来获取所有的表名
+    public List<String> getAllTableNames() {
+        String sql = "SHOW TABLES";
+        return jdbcTemplate.queryForList(sql, String.class);
     }
 }
