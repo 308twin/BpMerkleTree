@@ -14,10 +14,13 @@ spring:
     username: root
     password: 199795
   rocketmq:
+    topic: 
+      hash: hash
+      record: block_chain_record  
     # 指定使用 Proxy 的连接地址
     proxy:
       # Proxy 的地址，格式为 host:port
-      server-address: 127.0.0.1:8080
+      server-address: 10.176.24.18:8081
       # 可选：Proxy 的命名空间，如果有配置
       namespace: your-namespace
       # 可选：是否启用 TLS 加密通信

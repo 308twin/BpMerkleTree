@@ -4,12 +4,22 @@ import org.jboss.netty.util.internal.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import btree4j.entity.BinRecord;
 import btree4j.entity.TypeWithTime;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.util.*;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientConfigurationBuilder;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
+import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
+import org.apache.rocketmq.client.apis.consumer.PushConsumer;
+import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
+import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.Producer;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
@@ -18,6 +28,9 @@ import org.apache.rocketmq.common.TopicConfig;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
 @Service
 public class MqService {
@@ -29,6 +42,9 @@ public class MqService {
 
     @org.springframework.beans.factory.annotation.Value("${spring.rocketmq.proxy.server-address}")
     private String proxyServerAddress;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.rocketmq.topic.record}")
+    private String recordTopic;
 
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
@@ -48,28 +64,109 @@ public class MqService {
     }
 
     public void createMqTopic() throws MQClientException {
-        if (isServer) {
-            List<String> tables = compareService.getAllTableNames();
-            DefaultMQAdminExt mqAdminExt = new DefaultMQAdminExt();
-            mqAdminExt.setNamesrvAddr(proxyServerAddress);
-            mqAdminExt.start(); // 启动 admin 实例
-            // create topic if not exist
-            for (String table : tables) {
-                try {
-                    String topicName = table;
-                    int queueNum = 8;
-                    TopicConfig topicConfig = new TopicConfig();
-                    topicConfig.setTopicName(topicName);
-                    topicConfig.setWriteQueueNums(queueNum);
-                    topicConfig.setReadQueueNums(queueNum);
-                    mqAdminExt.createAndUpdateTopicConfig(proxyServerAddress, topicConfig);
+        // todo
+    }
 
-                } catch (Exception e) {
-                    LOG.error("create topic failed", e);
+    public void sendLocalRecordsToRemote() throws ClientException, IOException {
+        if (isServer) {
+            String topic = recordTopic;
+            ClientServiceProvider provider = ClientServiceProvider.loadService();
+            ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
+            ClientConfiguration configuration = builder.build();
+            Producer producer = provider.newProducerBuilder()
+                    .setTopics(topic)
+                    .setClientConfiguration(configuration)
+                    .build();
+
+            // 遍历localBinRecords，构建消息，发送到proxyServer,发送后删除
+            for (Map.Entry<String, ConcurrentHashMap<String, TypeWithTime>> entry : localBinRecords.entrySet()) {
+                String dbAndTable = entry.getKey();
+                ConcurrentHashMap<String, TypeWithTime> records = entry.getValue();
+                Kryo kryo = new Kryo(); // kryo不是线程安全的，每次使用都需要new一个对象
+                ByteArrayOutputStream byteOut = new ByteArrayOutputStream(); // 重用字节输出流
+                Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
+                for (Map.Entry<String, TypeWithTime> record : records.entrySet()) {
+                    String key = record.getKey();
+                    TypeWithTime typeWithTime = record.getValue();
+
+                    BinRecord binRecord = new BinRecord(key, typeWithTime.getTime(), typeWithTime.getType());
+                    byteOut.reset();
+                    kryo.writeObject(output, binRecord);
+                    output.flush();
+
+                    byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
+
+                    Message message = provider.newMessageBuilder()
+                            .setTopic(topic)
+                            .setTag(dbAndTable)
+                            .setBody(serializedBytes)
+                            .build();
+
+                    try {
+                        // 发送消息，需要关注发送结果，并捕获失败等异常。
+                        SendReceipt sendReceipt = producer.send(message);
+                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId());
+                        // 发送成功后删除
+                        records.remove(key);
+                    } catch (ClientException e) {
+                        LOG.error("Failed to send message", e);
+                    }
                 }
             }
-
         }
     }
 
+    public void sendLocalHashsToRemote() {
+        // todo
+    }
+
+    // 接收远程记录，并且将本地对应的记录删除
+    public void recieveRemoteRecords() {
+        if (!isServer) {
+            final ClientServiceProvider provider = ClientServiceProvider.loadService();
+            ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+                    .setEndpoints(proxyServerAddress)
+                    .build();
+
+            String topic = recordTopic;
+            List<String> tags = compareService.getAllTableNames();
+            String tagString = String.join("||", tags);
+            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+            try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
+                    .setClientConfiguration(clientConfiguration)
+                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+                    .setMessageListener(messageView -> {
+                        LOG.info("Consume message successfully, messageId={}" + messageView.getMessageId());
+
+                        Optional<String> tableName = messageView.getTag();
+                        ByteBuffer body = messageView.getBody();
+                        // 反序列化
+                        Kryo kryo = new Kryo();
+                        Input input = new Input(body.array());
+                        BinRecord binRecord = kryo.readObject(input, BinRecord.class);
+                        // 将localBinRecords对应的记录删除
+                        String key = binRecord.getKey();
+                        if(localBinRecords.containsKey(tableName)
+                        && localBinRecords.get(tableName).containsKey(key)
+                        && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
+                        && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()){
+                            localBinRecords.get(tableName).remove(key);
+                            LOG.debug("Remove local record successfully, key={}" + key);
+                        }else{
+                            LOG.error("Failed to remove local record, key={}" + key);
+                        }
+
+                        return ConsumeResult.SUCCESS;
+                    })
+                    .build()) {
+            } catch (ClientException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    public void recieveRemoteHashs() {
+        // todo
+    }
 }
