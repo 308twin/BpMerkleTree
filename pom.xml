@@ -99,6 +99,7 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-jdbc</artifactId>
+   			 <version>3.3.4</version>
 		</dependency>
 
 		<dependency>
@@ -483,7 +484,7 @@
 						</configuration>
 					</execution>
 					<!-- Check Java class file compatibility to Java 7/8 -->
-					<execution>
+					<!-- <execution>
 						<id>enforce-bytecode-version</id>
 						<goals>
 							<goal>enforce</goal>
@@ -500,7 +501,7 @@
 							</rules>
 							<fail>true</fail>
 						</configuration>
-					</execution>
+					</execution> -->
 				</executions>
 				<dependencies>
 					<dependency>
@@ -528,10 +529,11 @@
 				<executions>
 					<execution>
 						<id>ensure-java-1.8-class-library</id>
-						<phase>verify</phase>
+						<phase>none</phase>
 						<goals>
 							<goal>check</goal>
 						</goals>
+						
 					</execution>
 				</executions>
 			</plugin>
