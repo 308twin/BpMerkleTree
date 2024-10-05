@@ -1,6 +1,7 @@
 package btree4j.cache;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import btree4j.BTree;
 import btree4j.entity.MerkleHashEntity;
@@ -9,7 +10,8 @@ import btree4j.entity.TypeWithTime;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.annotation.Bean;
 import java.time.format.DateTimeFormatter;
-
+import org.springframework.jdbc.core.JdbcTemplate;
+import javax.sql.DataSource;
 import java.util.*;
 
 @Configuration
@@ -75,6 +77,11 @@ public class MerkleHashCache {
     @Bean("aboutToInsertRecord")
     public ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord(){
         return new ConcurrentHashMap<>();
+    }
+
+    @Bean
+    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
     }
 
 }
