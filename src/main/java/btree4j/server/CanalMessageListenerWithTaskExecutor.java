@@ -134,7 +134,7 @@ public class CanalMessageListenerWithTaskExecutor {
                     LOG.debug("数据库名: " + dbName);
                     LOG.debug("表名: " + tableName);
                     LOG.debug("主键字段: " + primaryKey);
-                    LOG.debug("插入时间: " + update_time_on_chain);
+                    LOG.debug("区块链上修改时间: " + update_time_on_chain);
                     compareService.addToLocalBinRecords(dbName, tableName, primaryKey, new TypeWithTime(
                             Utils.convertStringToLong(update_time_on_chain), TypeWithTime.OperationType.INSERT));
                     // 插入操作是先插入到待插入列表，然后再插入到btree中

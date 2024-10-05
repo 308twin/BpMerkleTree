@@ -7,12 +7,13 @@ my:
       timeFram: 10      #时间范围
       localHashMapMaxSize: 200000  # 用以比对的最大容量
 
+
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/block_chain
     username: root
-    password: 199795
+    password: 199795    
   rocketmq:
     topic: 
       hash: hash

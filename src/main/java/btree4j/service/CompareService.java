@@ -13,6 +13,7 @@ import btree4j.Value;
 import btree4j.entity.LimitedSizeConcurrentSkipListMapDescending;
 import btree4j.entity.MerkleHashEntity;
 import btree4j.entity.TypeWithTime;
+import btree4j.utils.Utils;
 import btree4j.utils.io.FileUtils;
 
 import java.util.*;
@@ -26,6 +27,10 @@ public class CompareService {
 
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.localHashMapMaxSize}")
     private int localHashMapMaxSize;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.datasource.url}")
+    private String url;
+
 
     private boolean isServer;
     private ConcurrentHashMap<String, Map> localHashs;
@@ -217,4 +222,54 @@ public class CompareService {
         String sql = "SHOW TABLES";
         return jdbcTemplate.queryForList(sql, String.class);
     }
+
+    //将所有BP树刷入磁盘
+    public void flushAllBtree() {
+        for (Map.Entry<String, BTree> entry : localBTrees.entrySet()) {
+            String dbAndTable = entry.getKey();
+            BTree btree = entry.getValue();
+            try {
+                btree.flush();
+            } catch (BTreeException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    //根据数据库的表初始化BP树
+    public void initBtree() {
+        List<String> tables = getAllTableNames();
+        String dbName = getDatabaseNameFromUrl(url);
+        for (String table : tables) {
+            String dbAndTable =  dbName + "__" + table;
+            try {
+                BTree bTree = getBTree(dbAndTable);
+                //先查找该table的key和update_time_on_chain字段
+                //`key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+                //`update_time_on_chain` timestamp(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3),
+                // String sql = "SELECT key, update_time_on_chain FROM " + table;
+                // List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+                // for (Map<String, Object> row : rows) {
+                //     String key = (String) row.get("key");
+                //     String update_time_on_chain = row.get("update_time_on_chain").toString();
+                //     long time = Utils.convertStringToLong(update_time_on_chain);
+                //     addRecordToInsertRecord(dbAndTable, time, key);
+                // }
+
+            } catch (BTreeException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public String getDatabaseNameFromUrl(String url) {
+        // 移除参数部分（如果有的话）
+        String urlWithoutParams = url.split("\\?")[0];
+        // 提取最后一个斜杠后的部分作为数据库名
+        return urlWithoutParams.substring(urlWithoutParams.lastIndexOf("/") + 1);
+    }
+
+    
+    
+
 }

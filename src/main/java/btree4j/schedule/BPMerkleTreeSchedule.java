@@ -1,6 +1,9 @@
 package btree4j.schedule;
 
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.annotation.PostConstruct;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -37,10 +40,18 @@ public class BPMerkleTreeSchedule {
         }
     }
 
-    @Scheduled(fixedRate = 10000)
-    public void createMqTopic(){
-        List<String> tables = compareService.getAllTableNames();
-        
+    
+
+    //将BP树刷入磁盘，60s一次
+    @Scheduled(fixedRate = 60000)
+    public void flushBtree(){
+        compareService.flushAllBtree();
+    }
+
+
+    @PostConstruct
+    public void initBtree(){
+        compareService.initBtree();
     }
 
 }
