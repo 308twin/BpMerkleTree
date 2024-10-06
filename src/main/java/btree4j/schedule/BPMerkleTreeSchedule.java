@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import btree4j.service.CompareService;
-
 import java.util.*;
 
 @Component

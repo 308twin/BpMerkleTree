@@ -113,16 +113,19 @@ public class CompareService {
 
     // 将记录插入到待插入列表，使用concurrentSkipListMap存储,排序方式是按照时间戳排序
     public void addRecordToInsertRecord(String dbAndTable, long time, String value) {
-        Map<Long, String> valueMap = aboutToInsertRecord.get(dbAndTable); // 获取dbAndTable对应的valueMap
-        if (valueMap == null) {
-            valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
-                @Override
-                public int compare(Long o1, Long o2) {
-                    return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
-                }
-            });
-            aboutToInsertRecord.put(dbAndTable, valueMap);
-        }
+        Map<Long, String> valueMap = aboutToInsertRecord.computeIfAbsent(
+            dbAndTable,
+            k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue))
+        );
+        // if (valueMap == null) {
+        //     valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
+        //         @Override
+        //         public int compare(Long o1, Long o2) {
+        //             return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
+        //         }
+        //     });
+        //     aboutToInsertRecord.put(dbAndTable, valueMap);
+        // }
         valueMap.put(time, value);
     }
 
