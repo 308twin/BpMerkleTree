@@ -42,3 +42,6 @@ target
 *.swp
 .idea
 *.iml
+
+*.idx
+src/main/resources/application.yml
