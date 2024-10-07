@@ -50,6 +50,9 @@ public class MqService {
     @org.springframework.beans.factory.annotation.Value("${spring.rocketmq.topic.record}")
     private String recordTopic;
 
+    @org.springframework.beans.factory.annotation.Value("${spring.datasource.url}")
+    private String url;
+
     private Producer producer; // 将 Producer 保持为全局的
     private ClientServiceProvider provider;
     private ClientConfiguration clientConfiguration;
@@ -102,7 +105,11 @@ public class MqService {
 
             // 初始化 PushConsumer
             String topic = recordTopic;
+            String dbName =  compareService.getDatabaseNameFromUrl(url);
             List<String> tags = compareService.getAllTableNames();
+            for (int index = 0; index < tags.size(); index++) {
+                tags.set(index, dbName + "__" + tags.get(index));
+            }
             String tagString = String.join("||", tags);
             FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
 
@@ -111,6 +118,7 @@ public class MqService {
                     .setConsumerGroup("record_consumer")  // 设置 Consumer Group
                     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
                     .setMessageListener(messageView -> {
+                        //LOG.info("Consume message successfully, messageId="+ messageView.getMessageId());
                         processRecordMessage(messageView);
                         return ConsumeResult.SUCCESS;
                     })
@@ -152,7 +160,8 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId());
+                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId()+
+                        "tag="+dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                     } catch (ClientException e) {
@@ -173,7 +182,6 @@ public class MqService {
     //         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
     //                 .setEndpoints(proxyServerAddress)
     //                 .build();
-
     //         String topic = recordTopic;
     //         List<String> tags = compareService.getAllTableNames();
     //         String tagString = String.join("||", tags);
@@ -183,7 +191,6 @@ public class MqService {
     //                 .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
     //                 .setMessageListener(messageView -> {
     //                     LOG.info("Consume message successfully, messageId={}" + messageView.getMessageId());
-
     //                     Optional<String> tableName = messageView.getTag();
     //                     ByteBuffer body = messageView.getBody();
     //                     // 反序列化
@@ -201,7 +208,6 @@ public class MqService {
     //                     } else {
     //                         LOG.error("Failed to remove local record, key={}" + key);
     //                     }
-
     //                     return ConsumeResult.SUCCESS;
     //                 })
     //                 .build()) {
@@ -217,8 +223,21 @@ public class MqService {
         ByteBuffer body = messageView.getBody();
 
         Kryo kryo = kryoThreadLocal.get();
-        Input input = new Input(body.array());
-        BinRecord binRecord = kryo.readObject(input, BinRecord.class);
+        byte[] byteArray = new byte[body.remaining()];
+
+        // 使用 body 的只读缓冲区创建一个副本，并将其内容读入 byteArray
+        body.duplicate().get(byteArray);
+        
+        // 将字节数组包装成 Input 对象
+        Input input = new Input(byteArray);
+        BinRecord binRecord;
+        try {
+            binRecord = kryo.readObject(input, BinRecord.class);
+        } catch (Exception e) {            
+            LOG.error("Failed to deserialize record message");
+            return;
+        }
+        
         System.out.println("Consume message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
         if (localBinRecords.containsKey(tableName)
