@@ -53,6 +53,8 @@ public class MqService {
     @org.springframework.beans.factory.annotation.Value("${spring.datasource.url}")
     private String url;
 
+    // private String dbName;
+
     private Producer producer; // 将 Producer 保持为全局的
     private ClientServiceProvider provider;
     private ClientConfiguration clientConfiguration;
@@ -78,8 +80,18 @@ public class MqService {
     }
 
     @PostConstruct
+    public void init() {
+        if (isServer) {
+            System.out.println("Running as WebSocket Server for Record");
+        } else {
+            System.out.println("Running as WebSocket Client for Record");
+        }
+        // dbName = compareService.getDatabaseNameFromUrl(url);
+    }
+
+    @PostConstruct
     public void initProducer() throws ClientException {
-        if(isServer){
+        if (isServer) {
             provider = ClientServiceProvider.loadService();
             clientConfiguration = ClientConfiguration.newBuilder()
                     .setEndpoints(proxyServerAddress)
@@ -91,7 +103,7 @@ public class MqService {
                     .setClientConfiguration(configuration)
                     .build();
         }
-        
+
     }
 
     @PostConstruct
@@ -105,7 +117,7 @@ public class MqService {
 
             // 初始化 PushConsumer
             String topic = recordTopic;
-            String dbName =  compareService.getDatabaseNameFromUrl(url);
+            String dbName = compareService.getDatabaseNameFromUrl(url);
             List<String> tags = compareService.getAllTableNames();
             for (int index = 0; index < tags.size(); index++) {
                 tags.set(index, dbName + "__" + tags.get(index));
@@ -115,10 +127,11 @@ public class MqService {
 
             pushConsumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
-                    .setConsumerGroup("record_consumer")  // 设置 Consumer Group
+                    .setConsumerGroup("record_consumer") // 设置 Consumer Group
                     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
                     .setMessageListener(messageView -> {
-                        //LOG.info("Consume message successfully, messageId="+ messageView.getMessageId());
+                        // LOG.info("Consume message successfully, messageId="+
+                        // messageView.getMessageId());
                         processRecordMessage(messageView);
                         return ConsumeResult.SUCCESS;
                     })
@@ -160,8 +173,8 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId()+
-                        "tag="+dbAndTable);
+                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId() +
+                                "tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                     } catch (ClientException e) {
@@ -178,48 +191,55 @@ public class MqService {
 
     // 接收远程记录，并且将本地对应的记录删除
     // public void recieveRemoteRecords() {
-    //     if (!isServer) {
-    //         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-    //                 .setEndpoints(proxyServerAddress)
-    //                 .build();
-    //         String topic = recordTopic;
-    //         List<String> tags = compareService.getAllTableNames();
-    //         String tagString = String.join("||", tags);
-    //         FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
-    //         try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
-    //                 .setClientConfiguration(clientConfiguration)
-    //                 .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
-    //                 .setMessageListener(messageView -> {
-    //                     LOG.info("Consume message successfully, messageId={}" + messageView.getMessageId());
-    //                     Optional<String> tableName = messageView.getTag();
-    //                     ByteBuffer body = messageView.getBody();
-    //                     // 反序列化
-    //                     Kryo kryo = kryoThreadLocal.get();
-    //                     Input input = new Input(body.array());
-    //                     BinRecord binRecord = kryo.readObject(input, BinRecord.class);
-    //                     // 将localBinRecords对应的记录删除
-    //                     String key = binRecord.getKey();
-    //                     if (localBinRecords.containsKey(tableName)
-    //                             && localBinRecords.get(tableName).containsKey(key)
-    //                             && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
-    //                             && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()) {
-    //                         localBinRecords.get(tableName).remove(key);
-    //                         LOG.debug("Remove local record successfully, key={}" + key);
-    //                     } else {
-    //                         LOG.error("Failed to remove local record, key={}" + key);
-    //                     }
-    //                     return ConsumeResult.SUCCESS;
-    //                 })
-    //                 .build()) {
-    //         } catch (ClientException | IOException e) {
-    //             e.printStackTrace();
-    //         }
-    //     }
+    // if (!isServer) {
+    // ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+    // .setEndpoints(proxyServerAddress)
+    // .build();
+    // String topic = recordTopic;
+    // List<String> tags = compareService.getAllTableNames();
+    // String tagString = String.join("||", tags);
+    // FilterExpression filterExpression = new FilterExpression(tagString,
+    // FilterExpressionType.TAG);
+    // try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
+    // .setClientConfiguration(clientConfiguration)
+    // .setSubscriptionExpressions(Collections.singletonMap(topic,
+    // filterExpression))
+    // .setMessageListener(messageView -> {
+    // LOG.info("Consume message successfully, messageId={}" +
+    // messageView.getMessageId());
+    // Optional<String> tableName = messageView.getTag();
+    // ByteBuffer body = messageView.getBody();
+    // // 反序列化
+    // Kryo kryo = kryoThreadLocal.get();
+    // Input input = new Input(body.array());
+    // BinRecord binRecord = kryo.readObject(input, BinRecord.class);
+    // // 将localBinRecords对应的记录删除
+    // String key = binRecord.getKey();
+    // if (localBinRecords.containsKey(tableName)
+    // && localBinRecords.get(tableName).containsKey(key)
+    // && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
+    // && localBinRecords.get(tableName).get(key).getType() == binRecord.getType())
+    // {
+    // localBinRecords.get(tableName).remove(key);
+    // LOG.debug("Remove local record successfully, key={}" + key);
+    // } else {
+    // LOG.error("Failed to remove local record, key={}" + key);
+    // }
+    // return ConsumeResult.SUCCESS;
+    // })
+    // .build()) {
+    // } catch (ClientException | IOException e) {
+    // e.printStackTrace();
+    // }
+    // }
 
     // }
 
     private void processRecordMessage(MessageView messageView) {
-        Optional<String> tableName = messageView.getTag();
+        Optional<String> dbAndTable = messageView.getTag();
+        // dbname__tablename
+        String dbName = dbAndTable.get().split("__")[0];
+        String tableName = dbAndTable.get().split("__")[1];
         ByteBuffer body = messageView.getBody();
 
         Kryo kryo = kryoThreadLocal.get();
@@ -227,27 +247,29 @@ public class MqService {
 
         // 使用 body 的只读缓冲区创建一个副本，并将其内容读入 byteArray
         body.duplicate().get(byteArray);
-        
+
         // 将字节数组包装成 Input 对象
         Input input = new Input(byteArray);
         BinRecord binRecord;
         try {
             binRecord = kryo.readObject(input, BinRecord.class);
-        } catch (Exception e) {            
+        } catch (Exception e) {
             LOG.error("Failed to deserialize record message");
             return;
         }
-        
+
         System.out.println("Consume message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
-        if (localBinRecords.containsKey(tableName)
-                && localBinRecords.get(tableName).containsKey(key)
-                && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
-                && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()) {
-            localBinRecords.get(tableName).remove(key);
-            LOG.debug("Remove local record successfully, key={}" + key);
+        if (localBinRecords.containsKey(dbAndTable)
+                && localBinRecords.get(dbAndTable).containsKey(key)
+                && localBinRecords.get(dbAndTable).get(key).getTime() == binRecord.getTime()
+                && localBinRecords.get(dbAndTable).get(key).getType() == binRecord.getType()) {
+            localBinRecords.get(dbAndTable).remove(key);
+            LOG.debug("Remove local record successfully, key=" + key);
         } else {
-            LOG.error("Failed to remove local record, key={}" + key);
+            compareService.addToRemoteBinRecords(dbName, tableName, key,
+                    new TypeWithTime(binRecord.getTime(), binRecord.getType()));
+            LOG.debug("Local record did not exist, key=" + key);
         }
     }
 

@@ -169,6 +169,13 @@ public class CompareService {
                 .put(key, typeWithTime);
     }
 
+    public void addToRemoteBinRecords(String dbName, String tableName, String key, TypeWithTime typeWithTime) {
+        String dbAndTable = dbName + "__" + tableName;
+        remoteBinRecords
+                .computeIfAbsent(dbAndTable, k -> new ConcurrentHashMap<>())
+                .put(key, typeWithTime);
+    }
+
     /*
      * 如果remoteBinRecords中的记录和localBinRecords中的记录为空，则更新isConcistByRecord对应的值为true
      * 如果remoteBinRecords中的最旧的记录和localBinRecords中最旧的记录有时间(超过当前时间-timeFram)的记录，

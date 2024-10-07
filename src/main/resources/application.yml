@@ -3,7 +3,7 @@ server:
 my:
   custom:
     config:
-      isServer: false  # 如果为 true，则启动 Server；如果为 false，则启动 Client
+      isServer: true  # 如果为 true，则启动 Server；如果为 false，则启动 Client
       timeFram: 10      #时间范围
       localHashMapMaxSize: 200000  # 用以比对的最大容量
 
