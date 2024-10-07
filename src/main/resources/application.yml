@@ -52,5 +52,5 @@ canal:
   destination: example  # Canal实例名
   username:           # 如果需要用户名，填写；如果不需要，可以留空
   password:           # 如果需要密码，填写；如果不需要，可以留空
-  subscription: ".*\\..*"  # 正则表达式，匹配要订阅的库和表，默认为订阅所有库表
+  subscription: "block_chain\\..*"  # 正则表达式，匹配要订阅的库和表，默认为订阅所有库表
 

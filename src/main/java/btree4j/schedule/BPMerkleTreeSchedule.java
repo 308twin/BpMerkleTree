@@ -66,6 +66,18 @@ public class BPMerkleTreeSchedule {
         mqService.printLocalBinRecordsWhereTimeRangeBiggerThan5s();
     }
 
+    //每10s打印一次record是否一致
+    @Scheduled(fixedRate = 10000)
+    public void printIsConsistByRecord(){
+        compareService.printAllConsistByRecord();
+    }
+
+    //每10s打印一次merkleHash是否一致
+    @Scheduled(fixedRate = 10000)
+    public void printIsConsistByMerkleHash(){
+        compareService.printAllConsistByMerkleHash();
+    }
+
     @Scheduled(fixedRate = 1000)
     public void sendLocalRecordsToRemote() throws ClientException, IOException{
         mqService.sendLocalRecordsToRemote();

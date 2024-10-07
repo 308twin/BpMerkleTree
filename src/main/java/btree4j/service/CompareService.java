@@ -158,8 +158,8 @@ public class CompareService {
             }
         }
         isConcistByMerkleHash.put(dbAndTable, isConcist);
-        localHashs.remove(dbAndTable);
-        remoteHashs.remove(dbAndTable);
+        // localHashs.remove(dbAndTable);
+        // remoteHashs.remove(dbAndTable);
     }
 
     public void addToLocalBinRecords(String dbName, String tableName, String key, TypeWithTime typeWithTime) {
@@ -204,6 +204,18 @@ public class CompareService {
             isConcistByRecord.put(dbAndTable, false);
         } else {
             isConcistByRecord.put(dbAndTable, true);
+        }
+    }
+
+    public void printAllConsistByRecord(){
+        for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()){
+            System.out.println("dbAndTable:"+entry.getKey()+",isConsistByRecord:"+entry.getValue());
+        }
+    }
+
+    public void printAllConsistByMerkleHash(){
+        for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()){
+            System.out.println("dbAndTable:"+entry.getKey()+",isConsistByMerkleHash:"+entry.getValue());
         }
     }
 

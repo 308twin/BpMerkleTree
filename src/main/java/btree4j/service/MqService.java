@@ -251,6 +251,7 @@ public class MqService {
 
     // 打印本地binlog记录中距离当前时间时间大于5s的记录
     public void printLocalBinRecordsWhereTimeRangeBiggerThan5s() {
+        System.out.println("printLocalBinRecordsWhereTimeRangeBiggerThan5s:");
         for (Map.Entry<String, ConcurrentHashMap<String, TypeWithTime>> entry : localBinRecords.entrySet()) {
             String dbAndTable = entry.getKey();
             ConcurrentHashMap<String, TypeWithTime> records = entry.getValue();

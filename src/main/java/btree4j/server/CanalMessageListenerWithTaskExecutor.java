@@ -39,7 +39,7 @@ public class CanalMessageListenerWithTaskExecutor {
     @Value("${canal.password:}")
     private String password;
 
-    @Value("${canal.subscription:.*\\..*}")
+    @Value("${canal.subscription}")
     private String subscription;
 
     private CanalConnector connector;
@@ -117,7 +117,6 @@ public class CanalMessageListenerWithTaskExecutor {
             CanalEntry.RowChange rowChange = CanalEntry.RowChange.parseFrom(entry.getStoreValue());
             String dbName = entry.getHeader().getSchemaName(); // 数据库名
             String tableName = entry.getHeader().getTableName(); // 表名
-
             for (CanalEntry.RowData rowData : rowChange.getRowDatasList()) {
                 if (rowChange.getEventType() == CanalEntry.EventType.INSERT) {
                     String primaryKey = null;
