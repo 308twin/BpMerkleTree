@@ -94,6 +94,7 @@ public class MqService {
     @PostConstruct
     public void initRecordConsumer() throws ClientException {
         if (!isServer) {
+            provider = ClientServiceProvider.loadService();
             // 初始化 ClientConfiguration
             clientConfiguration = ClientConfiguration.newBuilder()
                     .setEndpoints(proxyServerAddress)
@@ -107,6 +108,7 @@ public class MqService {
 
             pushConsumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
+                    .setConsumerGroup("record_consumer")  // 设置 Consumer Group
                     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
                     .setMessageListener(messageView -> {
                         processRecordMessage(messageView);

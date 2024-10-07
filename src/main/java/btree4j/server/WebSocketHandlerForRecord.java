@@ -6,7 +6,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+//@Component
 public class WebSocketHandlerForRecord extends TextWebSocketHandler {
 
     // 使用 ConcurrentHashMap 维护客户端连接
