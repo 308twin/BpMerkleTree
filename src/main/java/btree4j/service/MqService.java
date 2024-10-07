@@ -219,7 +219,7 @@ public class MqService {
         Kryo kryo = kryoThreadLocal.get();
         Input input = new Input(body.array());
         BinRecord binRecord = kryo.readObject(input, BinRecord.class);
-
+        System.out.println("Consume message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
         if (localBinRecords.containsKey(tableName)
                 && localBinRecords.get(tableName).containsKey(key)
