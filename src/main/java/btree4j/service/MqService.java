@@ -76,16 +76,19 @@ public class MqService {
 
     @PostConstruct
     public void initProducer() throws ClientException {
-        provider = ClientServiceProvider.loadService();
-        clientConfiguration = ClientConfiguration.newBuilder()
-                .setEndpoints(proxyServerAddress)
-                .build();
-        ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
-        ClientConfiguration configuration = builder.build();
-        producer = provider.newProducerBuilder()
-                .setTopics(recordTopic)
-                .setClientConfiguration(configuration)
-                .build();
+        if(isServer){
+            provider = ClientServiceProvider.loadService();
+            clientConfiguration = ClientConfiguration.newBuilder()
+                    .setEndpoints(proxyServerAddress)
+                    .build();
+            ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
+            ClientConfiguration configuration = builder.build();
+            producer = provider.newProducerBuilder()
+                    .setTopics(recordTopic)
+                    .setClientConfiguration(configuration)
+                    .build();
+        }
+        
     }
 
     @PostConstruct
@@ -163,49 +166,49 @@ public class MqService {
     }
 
     // 接收远程记录，并且将本地对应的记录删除
-    public void recieveRemoteRecords() {
-        if (!isServer) {
-            ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-                    .setEndpoints(proxyServerAddress)
-                    .build();
+    // public void recieveRemoteRecords() {
+    //     if (!isServer) {
+    //         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+    //                 .setEndpoints(proxyServerAddress)
+    //                 .build();
 
-            String topic = recordTopic;
-            List<String> tags = compareService.getAllTableNames();
-            String tagString = String.join("||", tags);
-            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
-            try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
-                    .setClientConfiguration(clientConfiguration)
-                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
-                    .setMessageListener(messageView -> {
-                        LOG.info("Consume message successfully, messageId={}" + messageView.getMessageId());
+    //         String topic = recordTopic;
+    //         List<String> tags = compareService.getAllTableNames();
+    //         String tagString = String.join("||", tags);
+    //         FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+    //         try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
+    //                 .setClientConfiguration(clientConfiguration)
+    //                 .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+    //                 .setMessageListener(messageView -> {
+    //                     LOG.info("Consume message successfully, messageId={}" + messageView.getMessageId());
 
-                        Optional<String> tableName = messageView.getTag();
-                        ByteBuffer body = messageView.getBody();
-                        // 反序列化
-                        Kryo kryo = new Kryo();
-                        Input input = new Input(body.array());
-                        BinRecord binRecord = kryo.readObject(input, BinRecord.class);
-                        // 将localBinRecords对应的记录删除
-                        String key = binRecord.getKey();
-                        if (localBinRecords.containsKey(tableName)
-                                && localBinRecords.get(tableName).containsKey(key)
-                                && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
-                                && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()) {
-                            localBinRecords.get(tableName).remove(key);
-                            LOG.debug("Remove local record successfully, key={}" + key);
-                        } else {
-                            LOG.error("Failed to remove local record, key={}" + key);
-                        }
+    //                     Optional<String> tableName = messageView.getTag();
+    //                     ByteBuffer body = messageView.getBody();
+    //                     // 反序列化
+    //                     Kryo kryo = kryoThreadLocal.get();
+    //                     Input input = new Input(body.array());
+    //                     BinRecord binRecord = kryo.readObject(input, BinRecord.class);
+    //                     // 将localBinRecords对应的记录删除
+    //                     String key = binRecord.getKey();
+    //                     if (localBinRecords.containsKey(tableName)
+    //                             && localBinRecords.get(tableName).containsKey(key)
+    //                             && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
+    //                             && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()) {
+    //                         localBinRecords.get(tableName).remove(key);
+    //                         LOG.debug("Remove local record successfully, key={}" + key);
+    //                     } else {
+    //                         LOG.error("Failed to remove local record, key={}" + key);
+    //                     }
 
-                        return ConsumeResult.SUCCESS;
-                    })
-                    .build()) {
-            } catch (ClientException | IOException e) {
-                e.printStackTrace();
-            }
-        }
+    //                     return ConsumeResult.SUCCESS;
+    //                 })
+    //                 .build()) {
+    //         } catch (ClientException | IOException e) {
+    //             e.printStackTrace();
+    //         }
+    //     }
 
-    }
+    // }
 
     private void processRecordMessage(MessageView messageView) {
         Optional<String> tableName = messageView.getTag();
