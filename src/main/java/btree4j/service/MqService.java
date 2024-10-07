@@ -236,10 +236,10 @@ public class MqService {
     // }
 
     private void processRecordMessage(MessageView messageView) {
-        Optional<String> dbAndTable = messageView.getTag();
+        String dbAndTable = messageView.getTag().orElse(null);
         // dbname__tablename
-        String dbName = dbAndTable.get().split("__")[0];
-        String tableName = dbAndTable.get().split("__")[1];
+        String dbName = dbAndTable.split("__")[0];
+        String tableName = dbAndTable.split("__")[1];
         ByteBuffer body = messageView.getBody();
 
         Kryo kryo = kryoThreadLocal.get();
