@@ -4,20 +4,28 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.rocketmq.client.apis.ClientException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import btree4j.service.CompareService;
+import btree4j.service.MqService;
+
+import java.io.IOException;
 import java.util.*;
 
 @Component
 public class BPMerkleTreeSchedule {
     private ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord;
     private CompareService compareService;
+    private MqService   mqService;
 
-    public BPMerkleTreeSchedule(ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord, CompareService compareService) {
+    public BPMerkleTreeSchedule(ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord, 
+    CompareService compareService,
+    MqService MqService) {
         this.aboutToInsertRecord = aboutToInsertRecord;
         this.compareService = compareService;
+        this.mqService = MqService;
     }
 
     @Scheduled(fixedRate = 10000)
@@ -51,6 +59,16 @@ public class BPMerkleTreeSchedule {
     @PostConstruct
     public void initBtree(){
         compareService.initBtree();
+    }
+
+    @Scheduled(fixedRate = 10000)
+    public void printLocalBinRecords(){
+        mqService.printLocalBinRecordsWhereTimeRangeBiggerThan5s();
+    }
+
+    @Scheduled(fixedRate = 1000)
+    public void sendLocalRecordsToRemote() throws ClientException, IOException{
+        mqService.sendLocalRecordsToRemote();
     }
 
 }

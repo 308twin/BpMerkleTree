@@ -1,6 +1,9 @@
 package btree4j.service;
 
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.annotation.PostConstruct;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +24,7 @@ import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.Message;
+import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.apis.producer.Producer;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.exception.MQClientException;
@@ -46,6 +50,13 @@ public class MqService {
     @org.springframework.beans.factory.annotation.Value("${spring.rocketmq.topic.record}")
     private String recordTopic;
 
+    private Producer producer; // 将 Producer 保持为全局的
+    private ClientServiceProvider provider;
+    private ClientConfiguration clientConfiguration;
+    private PushConsumer pushConsumer;
+
+    private static final ThreadLocal<Kryo> kryoThreadLocal = ThreadLocal.withInitial(Kryo::new);
+
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Map> localHashs;
@@ -63,26 +74,57 @@ public class MqService {
         this.compareService = compareService;
     }
 
+    @PostConstruct
+    public void initProducer() throws ClientException {
+        provider = ClientServiceProvider.loadService();
+        clientConfiguration = ClientConfiguration.newBuilder()
+                .setEndpoints(proxyServerAddress)
+                .build();
+        ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
+        ClientConfiguration configuration = builder.build();
+        producer = provider.newProducerBuilder()
+                .setTopics(recordTopic)
+                .setClientConfiguration(configuration)
+                .build();
+    }
+
+    @PostConstruct
+    public void initRecordConsumer() throws ClientException {
+        if (!isServer) {
+            // 初始化 ClientConfiguration
+            clientConfiguration = ClientConfiguration.newBuilder()
+                    .setEndpoints(proxyServerAddress)
+                    .build();
+
+            // 初始化 PushConsumer
+            String topic = recordTopic;
+            List<String> tags = compareService.getAllTableNames();
+            String tagString = String.join("||", tags);
+            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+
+            pushConsumer = provider.newPushConsumerBuilder()
+                    .setClientConfiguration(clientConfiguration)
+                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+                    .setMessageListener(messageView -> {
+                        processRecordMessage(messageView);
+                        return ConsumeResult.SUCCESS;
+                    })
+                    .build();
+        }
+
+    }
+
     public void createMqTopic() throws MQClientException {
         // todo
     }
 
     public void sendLocalRecordsToRemote() throws ClientException, IOException {
         if (isServer) {
-            String topic = recordTopic;
-            ClientServiceProvider provider = ClientServiceProvider.loadService();
-            ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
-            ClientConfiguration configuration = builder.build();
-            Producer producer = provider.newProducerBuilder()
-                    .setTopics(topic)
-                    .setClientConfiguration(configuration)
-                    .build();
-
             // 遍历localBinRecords，构建消息，发送到proxyServer,发送后删除
             for (Map.Entry<String, ConcurrentHashMap<String, TypeWithTime>> entry : localBinRecords.entrySet()) {
                 String dbAndTable = entry.getKey();
                 ConcurrentHashMap<String, TypeWithTime> records = entry.getValue();
-                Kryo kryo = new Kryo(); // kryo不是线程安全的，每次使用都需要new一个对象
+                Kryo kryo = kryoThreadLocal.get();
                 ByteArrayOutputStream byteOut = new ByteArrayOutputStream(); // 重用字节输出流
                 Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
                 for (Map.Entry<String, TypeWithTime> record : records.entrySet()) {
@@ -97,7 +139,7 @@ public class MqService {
                     byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
 
                     Message message = provider.newMessageBuilder()
-                            .setTopic(topic)
+                            .setTopic(recordTopic)
                             .setTag(dbAndTable)
                             .setBody(serializedBytes)
                             .build();
@@ -123,7 +165,6 @@ public class MqService {
     // 接收远程记录，并且将本地对应的记录删除
     public void recieveRemoteRecords() {
         if (!isServer) {
-            final ClientServiceProvider provider = ClientServiceProvider.loadService();
             ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
                     .setEndpoints(proxyServerAddress)
                     .build();
@@ -146,13 +187,13 @@ public class MqService {
                         BinRecord binRecord = kryo.readObject(input, BinRecord.class);
                         // 将localBinRecords对应的记录删除
                         String key = binRecord.getKey();
-                        if(localBinRecords.containsKey(tableName)
-                        && localBinRecords.get(tableName).containsKey(key)
-                        && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
-                        && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()){
+                        if (localBinRecords.containsKey(tableName)
+                                && localBinRecords.get(tableName).containsKey(key)
+                                && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
+                                && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()) {
                             localBinRecords.get(tableName).remove(key);
                             LOG.debug("Remove local record successfully, key={}" + key);
-                        }else{
+                        } else {
                             LOG.error("Failed to remove local record, key={}" + key);
                         }
 
@@ -166,7 +207,57 @@ public class MqService {
 
     }
 
+    private void processRecordMessage(MessageView messageView) {
+        Optional<String> tableName = messageView.getTag();
+        ByteBuffer body = messageView.getBody();
+
+        Kryo kryo = kryoThreadLocal.get();
+        Input input = new Input(body.array());
+        BinRecord binRecord = kryo.readObject(input, BinRecord.class);
+
+        String key = binRecord.getKey();
+        if (localBinRecords.containsKey(tableName)
+                && localBinRecords.get(tableName).containsKey(key)
+                && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
+                && localBinRecords.get(tableName).get(key).getType() == binRecord.getType()) {
+            localBinRecords.get(tableName).remove(key);
+            LOG.debug("Remove local record successfully, key={}" + key);
+        } else {
+            LOG.error("Failed to remove local record, key={}" + key);
+        }
+    }
+
     public void recieveRemoteHashs() {
         // todo
+    }
+
+    public void printLocalBinRecords() {
+        for (Map.Entry<String, ConcurrentHashMap<String, TypeWithTime>> entry : localBinRecords.entrySet()) {
+            String dbAndTable = entry.getKey();
+            ConcurrentHashMap<String, TypeWithTime> records = entry.getValue();
+            for (Map.Entry<String, TypeWithTime> record : records.entrySet()) {
+                String key = record.getKey();
+                TypeWithTime typeWithTime = record.getValue();
+                LOG.info("dbAndTable: " + dbAndTable + ", key: " + key + ", time: " + typeWithTime.getTime()
+                        + ", type: " + typeWithTime.getType());
+            }
+        }
+    }
+
+    // 打印本地binlog记录中距离当前时间时间大于5s的记录
+    public void printLocalBinRecordsWhereTimeRangeBiggerThan5s() {
+        for (Map.Entry<String, ConcurrentHashMap<String, TypeWithTime>> entry : localBinRecords.entrySet()) {
+            String dbAndTable = entry.getKey();
+            ConcurrentHashMap<String, TypeWithTime> records = entry.getValue();
+            for (Map.Entry<String, TypeWithTime> record : records.entrySet()) {
+                String key = record.getKey();
+                TypeWithTime typeWithTime = record.getValue();
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - typeWithTime.getTime() > 5000) {
+                    LOG.info("dbAndTable: " + dbAndTable + ", key: " + key + ", time: " + typeWithTime.getTime()
+                            + ", type: " + typeWithTime.getType());
+                }
+            }
+        }
     }
 }
