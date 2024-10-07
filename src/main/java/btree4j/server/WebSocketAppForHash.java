@@ -14,8 +14,8 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.context.annotation.ComponentScan;
 
-@Configuration
-@EnableWebSocket
+//@Configuration
+//@EnableWebSocket
 public class WebSocketAppForHash implements WebSocketConfigurer {
 
     @Value("${my.custom.config.isServer:false}") // 默认值为 false

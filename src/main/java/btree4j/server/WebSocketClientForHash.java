@@ -10,7 +10,7 @@ import org.springframework.web.socket.CloseStatus;
 import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 
-@Component
+//@Component
 @ConditionalOnProperty(name = "my.custom.config.isServer", havingValue = "false")
 public class WebSocketClientForHash {
 
