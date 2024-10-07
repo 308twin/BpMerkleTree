@@ -44,4 +44,5 @@ target
 *.iml
 
 *.idx
+*.yml
 src/main/resources/application.yml
