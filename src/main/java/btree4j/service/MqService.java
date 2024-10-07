@@ -262,7 +262,6 @@ public class MqService {
         String key = binRecord.getKey();
         if (localBinRecords.containsKey(dbAndTable)
                 && localBinRecords.get(dbAndTable).containsKey(key)
-                && localBinRecords.get(dbAndTable).get(key).getTime() == binRecord.getTime()
                 && localBinRecords.get(dbAndTable).get(key).getType() == binRecord.getType()) {
             localBinRecords.get(dbAndTable).remove(key);
             LOG.debug("Remove local record successfully, key=" + key);
