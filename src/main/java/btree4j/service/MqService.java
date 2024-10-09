@@ -166,7 +166,7 @@ public class MqService {
                     .setConsumerGroup("hash_consumer") // 设置 Consumer Group
                     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
                     .setMessageListener(messageView -> {
-                        processRecordMessage(messageView);
+                        processHashMessage(messageView);
                         return ConsumeResult.SUCCESS;
                     })
                     .build();
@@ -244,8 +244,9 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId() +
-                                "tag=" + dbAndTable);
+                        LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() 
+                        + "topic = " + hashTopic 
+                        + "tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                     } catch (ClientException e) {
