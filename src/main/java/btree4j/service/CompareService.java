@@ -18,7 +18,9 @@ import btree4j.utils.io.FileUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
-
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.Cache;
+import java.util.concurrent.TimeUnit;
 @Service
 @ConfigurationProperties(prefix = "my.custom.config")
 public class CompareService {
@@ -82,11 +84,14 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
-        Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
-        if (tableHashHistorys == null) {
-            tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
-            localHashs.put(dbAndTable, tableHashHistorys);
-        }
+        Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable, 
+        k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
+
+        // Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
+        // if (tableHashHistorys == null) {
+        //     tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
+        //     localHashs.put(dbAndTable, tableHashHistorys);
+        // }
         // current time to long
         long time = System.currentTimeMillis();
         tableHashHistorys.put(time, hash);
@@ -127,6 +132,15 @@ public class CompareService {
         //     aboutToInsertRecord.put(dbAndTable, valueMap);
         // }
         valueMap.put(time, value);
+    }
+
+    public void addToRemoteHashs(String dbAndTable, long time, String hash) {   
+        @SuppressWarnings("unchecked")
+        Map<Long,String> remoteHashsMap = remoteHashs.computeIfAbsent(
+            dbAndTable,
+            k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue))
+        );
+        remoteHashsMap.put(time, hash);
     }
 
     // 通过remoteHashs中的hash和localHashs中的hash进行比较，如果不一致则返回false
@@ -174,6 +188,15 @@ public class CompareService {
         remoteBinRecords
                 .computeIfAbsent(dbAndTable, k -> new ConcurrentHashMap<>())
                 .put(key, typeWithTime);
+    }
+
+    
+    public void matchAllRecords(){
+        List<String> dbAndTables = new ArrayList<>();
+        dbAndTables.addAll(localBinRecords.keySet());
+        for (String dbAndTable : dbAndTables) {
+            isConcistByRecord(dbAndTable);
+        }
     }
 
     /*

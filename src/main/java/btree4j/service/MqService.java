@@ -50,6 +50,9 @@ public class MqService {
     @org.springframework.beans.factory.annotation.Value("${spring.rocketmq.topic.record}")
     private String recordTopic;
 
+    @org.springframework.beans.factory.annotation.Value("${spring.rocketmq.topic.hash}")
+    private String hashTopic;
+
     @org.springframework.beans.factory.annotation.Value("${spring.datasource.url}")
     private String url;
 
@@ -106,7 +109,7 @@ public class MqService {
 
     }
 
-    @PostConstruct
+    //@PostConstruct
     public void initRecordConsumer() throws ClientException {
         if (!isServer) {
             provider = ClientServiceProvider.loadService();
@@ -140,8 +143,35 @@ public class MqService {
 
     }
 
-    public void createMqTopic() throws MQClientException {
-        // todo
+    @PostConstruct
+    public void initHashConsumer() throws ClientException {
+        if (!isServer) {
+            provider = ClientServiceProvider.loadService();
+            // 初始化 ClientConfiguration
+            clientConfiguration = ClientConfiguration.newBuilder()
+                    .setEndpoints(proxyServerAddress)
+                    .build();
+
+            // 初始化 PushConsumer
+            String topic = hashTopic;
+            String dbName = compareService.getDatabaseNameFromUrl(url);
+            List<String> tags = compareService.getAllTableNames();
+            for (int index = 0; index < tags.size(); index++) {
+                tags.set(index, dbName + "__" + tags.get(index));
+            }
+            String tagString = String.join("||", tags);
+            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+
+            pushConsumer = provider.newPushConsumerBuilder()
+                    .setClientConfiguration(clientConfiguration)
+                    .setConsumerGroup("hash_consumer") // 设置 Consumer Group
+                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+                    .setMessageListener(messageView -> {
+                        processRecordMessage(messageView);
+                        return ConsumeResult.SUCCESS;
+                    })
+                    .build();
+        }
     }
 
     public void sendLocalRecordsToRemote() throws ClientException, IOException {
@@ -185,8 +215,46 @@ public class MqService {
         }
     }
 
+    // 发送本地hash记录到远程
     public void sendLocalHashsToRemote() {
-        // todo
+        if (isServer) {
+            // 遍历localHashRecords，构建消息，发送到proxyServer,发送后删除
+            for (Map.Entry<String, Map> entry : localHashs.entrySet()) {
+                String dbAndTable = entry.getKey();
+                Map<Long, String> records = entry.getValue();
+                Kryo kryo = kryoThreadLocal.get();
+                ByteArrayOutputStream byteOut = new ByteArrayOutputStream(); // 重用字节输出流
+                Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
+                for (Map.Entry<Long, String> record : records.entrySet()) {
+                    Long key = record.getKey();
+                    // String value = record.getValue();
+                    byteOut.reset();
+
+                    // 写入record
+                    kryo.writeObject(output, record);
+                    output.flush();
+
+                    byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
+
+                    Message message = provider.newMessageBuilder()
+                            .setTopic(hashTopic)
+                            .setTag(dbAndTable)
+                            .setBody(serializedBytes)
+                            .build();
+
+                    try {
+                        // 发送消息，需要关注发送结果，并捕获失败等异常。
+                        SendReceipt sendReceipt = producer.send(message);
+                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId() +
+                                "tag=" + dbAndTable);
+                        // 发送成功后删除
+                        records.remove(key);
+                    } catch (ClientException e) {
+                        LOG.error("Failed to send message", e);
+                    }
+                }
+            }
+        }
     }
 
     // 接收远程记录，并且将本地对应的记录删除
@@ -272,8 +340,63 @@ public class MqService {
         }
     }
 
+
+    /*
+     * 处理 hash 消息
+     * 将远端的hash存储到本地，用以后续的对比。
+     * 这里存储使用的是一个先进先出的跳表，大小可以自定义。
+     */
+    @SuppressWarnings("unchecked")
+    public void processHashMessage(MessageView messageView) {
+        String dbAndTable = messageView.getTag().orElse(null);
+        // dbname__tablename
+        String dbName = dbAndTable.split("__")[0];
+        String tableName = dbAndTable.split("__")[1];
+        ByteBuffer body = messageView.getBody();
+
+        Kryo kryo = kryoThreadLocal.get();
+        byte[] byteArray = new byte[body.remaining()];
+
+        // 使用 body 的只读缓冲区创建一个副本，并将其内容读入 byteArray
+        body.duplicate().get(byteArray);
+
+        // 将字节数组包装成 Input 对象
+        Input input = new Input(byteArray);
+        Map.Entry<Long, String> record;
+        try {
+            record = kryo.readObject(input, Map.Entry.class);
+        } catch (Exception e) {
+            LOG.error("Failed to deserialize hash message");
+            return;
+        }
+        compareService.addToRemoteHashs(dbAndTable, record.getKey(), record.getValue());
+        LOG.debug(messageView.getMessageId() + "Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
+    }
+
+    
+
+    // 接收远程hash，并且将远程的hash存储在remoteHashs中
     public void recieveRemoteHashs() {
-        // todo
+        if(!isServer){
+            ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+                    .setEndpoints(proxyServerAddress)
+                    .build();
+            String topic = hashTopic;
+            List<String> tags = compareService.getAllTableNames();
+            String tagString = String.join("||", tags);
+            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+            try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
+                    .setClientConfiguration(clientConfiguration)
+                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+                    .setMessageListener(messageView -> {
+                        processHashMessage(messageView);        
+                        return ConsumeResult.SUCCESS;
+                    })
+                    .build()) {
+            } catch (ClientException | IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public void printLocalBinRecords() {
