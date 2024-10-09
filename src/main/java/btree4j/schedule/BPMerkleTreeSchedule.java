@@ -83,4 +83,10 @@ public class BPMerkleTreeSchedule {
         mqService.sendLocalRecordsToRemote();
     }
 
+
+    @Scheduled(fixedRate = 1000)
+    public void sendLocalHashsToRemote() throws ClientException, IOException{
+        mqService.sendLocalHashsToRemote();
+    }
+
 }

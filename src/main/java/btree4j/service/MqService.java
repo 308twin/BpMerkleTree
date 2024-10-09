@@ -102,7 +102,6 @@ public class MqService {
             ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
             ClientConfiguration configuration = builder.build();
             producer = provider.newProducerBuilder()
-                    .setTopics(recordTopic)
                     .setClientConfiguration(configuration)
                     .build();
         }
