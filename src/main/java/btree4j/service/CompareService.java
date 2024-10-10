@@ -253,6 +253,7 @@ public class CompareService {
     }
 
     public void printAllConsistByMerkleHash(){
+        System.out.println("printAllConsistByMerkleHash");
         for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()){
             System.out.println("dbAndTable:"+entry.getKey()+",isConsistByMerkleHash:"+entry.getValue());
         }
