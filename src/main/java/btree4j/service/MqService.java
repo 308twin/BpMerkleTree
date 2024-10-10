@@ -240,7 +240,7 @@ public class MqService {
                     output.flush();
 
                     byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
-
+                   
                     Message message = provider.newMessageBuilder()
                             .setTopic(hashTopic)
                             .setTag(dbAndTable)
