@@ -70,17 +70,20 @@ public class MqService {
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Map> localHashs;
+    private ConcurrentHashMap<String, Map> aboutToSendHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
     private CompareService compareService;
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
             ConcurrentHashMap<String, Map> localHashs, ConcurrentHashMap<String, Map> remoteHashs,
+            ConcurrentHashMap<String, Map> aboutToSendHashs,
             CompareService compareService) {
         this.remoteBinRecords = remoteBinRecords;
         this.localBinRecords = localBinRecords;
         this.localHashs = localHashs;
         this.remoteHashs = remoteHashs;
+        this.aboutToSendHashs = aboutToSendHashs;
         this.compareService = compareService;
     }
 
@@ -220,7 +223,7 @@ public class MqService {
     public void sendLocalHashsToRemote() {
         if (isServer) {
             // 遍历localHashRecords，构建消息，发送到proxyServer,发送后删除
-            for (Map.Entry<String, Map> entry : localHashs.entrySet()) {
+            for (Map.Entry<String, Map> entry : aboutToSendHashs.entrySet()) {
                 String dbAndTable = entry.getKey();
                 Map<Long, String> records = entry.getValue();
                 Kryo kryo = kryoThreadLocal.get();
@@ -250,6 +253,8 @@ public class MqService {
                         LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() 
                         + "topic = " + hashTopic 
                         + "tag=" + dbAndTable);
+                        // 发送成功后删除
+                        records.remove(key);
                         
                     } catch (ClientException e) {
                         LOG.error("Failed to send message", e);

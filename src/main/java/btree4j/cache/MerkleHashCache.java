@@ -26,6 +26,11 @@ public class MerkleHashCache {
         return new ConcurrentHashMap<>();
     }
 
+    @Bean("aboutToSendHashs")
+    public ConcurrentHashMap<String,Map> aboutToSendHashs() {
+        return new ConcurrentHashMap<>();
+    }
+
     // key : dbname__tablename
     // value : merkleHash
     // 存储远程生成的历史merkleHash

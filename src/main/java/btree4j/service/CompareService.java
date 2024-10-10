@@ -37,12 +37,14 @@ public class CompareService {
     private boolean isServer;
     private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
+    private ConcurrentHashMap<String, Map> aboutToSendHashs;
     private ConcurrentHashMap<String, Boolean> isConcistByMerkleHash;
     private ConcurrentHashMap<String, BTree> localBTrees;
     private ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Boolean> isConcistByRecord;
+     
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -50,6 +52,7 @@ public class CompareService {
     @Autowired
     public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
             ConcurrentHashMap<String, Map> remoteHashs,
+            ConcurrentHashMap<String, Map> aboutToSendHashs,
             ConcurrentHashMap<String, BTree> localBTrees,
             ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord,
             ConcurrentHashMap<String, Boolean> isConcistByMerkleHash,
@@ -58,6 +61,7 @@ public class CompareService {
             ConcurrentHashMap<String, Boolean> isConcistByRecord) {
         this.localHashs = localHashs;
         this.remoteHashs = remoteHashs;
+        this.aboutToSendHashs = aboutToSendHashs;
         this.localBTrees = localBTrees;
         this.aboutToInsertRecord = aboutToInsertRecord;
         this.isConcistByMerkleHash = isConcistByMerkleHash;
@@ -87,6 +91,10 @@ public class CompareService {
         Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable, 
         k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
+        Map<Long, String> aboutToSendHistorys = aboutToSendHashs.computeIfAbsent(dbAndTable,
+        k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
+       
+
         // Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
         // if (tableHashHistorys == null) {
         //     tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
@@ -95,6 +103,7 @@ public class CompareService {
         // current time to long
         long time = System.currentTimeMillis();
         tableHashHistorys.put(time, hash);
+        aboutToSendHistorys.put(time, hash);
     }
 
     public void insertKeyToBtree(String dbAndTable, String value, long time) throws BTreeException {
