@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import btree4j.entity.BinRecord;
+import btree4j.entity.HashWithTimestamp;
 import btree4j.entity.TypeWithTime;
 
 import java.io.ByteArrayOutputStream;
@@ -29,6 +30,7 @@ import org.apache.rocketmq.client.apis.producer.Producer;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.TopicConfig;
+import org.apache.rocketmq.shaded.com.google.protobuf.Timestamp;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
@@ -226,11 +228,12 @@ public class MqService {
                 Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
                 for (Map.Entry<Long, String> record : records.entrySet()) {
                     Long key = record.getKey();
-                    // String value = record.getValue();
+                    String value = record.getValue();
                     byteOut.reset();
 
                     // 写入record
-                    kryo.writeObject(output, record);
+                    HashWithTimestamp hashWithTimestamp = new HashWithTimestamp(value, key);
+                    kryo.writeObject(output, hashWithTimestamp);
                     output.flush();
 
                     byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
@@ -247,8 +250,7 @@ public class MqService {
                         LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() 
                         + "topic = " + hashTopic 
                         + "tag=" + dbAndTable);
-                        // 发送成功后删除
-                        records.remove(key);
+                        
                     } catch (ClientException e) {
                         LOG.error("Failed to send message", e);
                     }
@@ -362,14 +364,14 @@ public class MqService {
 
         // 将字节数组包装成 Input 对象
         Input input = new Input(byteArray);
-        Map.Entry<Long, String> record;
+        HashWithTimestamp record;
         try {
-            record = kryo.readObject(input, Map.Entry.class);
+            record = kryo.readObject(input, HashWithTimestamp.class);
         } catch (Exception e) {
             LOG.error("Failed to deserialize hash message");
             return;
         }
-        compareService.addToRemoteHashs(dbAndTable, record.getKey(), record.getValue());
+        compareService.addToRemoteHashs(dbAndTable, record.getTimestamp(), record.getHash());
         LOG.debug(messageView.getMessageId() + "Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
     }
 
