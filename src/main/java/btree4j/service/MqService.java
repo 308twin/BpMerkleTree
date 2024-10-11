@@ -63,8 +63,8 @@ public class MqService {
     private Producer producer; // 将 Producer 保持为全局的
     private ClientServiceProvider provider;
     private ClientConfiguration clientConfiguration;
-    private PushConsumer pushConsumer;
-
+    private PushConsumer recordPushConsumer;
+    private PushConsumer hashPushConsumer;
     private static final ThreadLocal<Kryo> kryoThreadLocal = ThreadLocal.withInitial(Kryo::new);
 
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
@@ -92,6 +92,7 @@ public class MqService {
         if (isServer) {
             System.out.println("Running as WebSocket Server for Record");
         } else {
+            
             System.out.println("Running as WebSocket Client for Record");
         }
         // dbName = compareService.getDatabaseNameFromUrl(url);
@@ -117,11 +118,9 @@ public class MqService {
     public void initRecordConsumer() throws ClientException {
         if (!isServer) {
             provider = ClientServiceProvider.loadService();
-            // 初始化 ClientConfiguration
             clientConfiguration = ClientConfiguration.newBuilder()
-                    .setEndpoints(proxyServerAddress)
-                    .build();
-
+            .setEndpoints(proxyServerAddress)
+            .build();
             // 初始化 PushConsumer
             String topic = recordTopic;
             String dbName = compareService.getDatabaseNameFromUrl(url);
@@ -132,10 +131,10 @@ public class MqService {
             String tagString = String.join("||", tags);
             FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
 
-            pushConsumer = provider.newPushConsumerBuilder()
+            recordPushConsumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
                     .setConsumerGroup("record_consumer") // 设置 Consumer Group
-                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+                    .setSubscriptionExpressions(Collections.singletonMap("hash", filterExpression))
                     .setMessageListener(messageView -> {
                         // LOG.info("Consume message successfully, messageId="+
                         // messageView.getMessageId());
@@ -151,10 +150,9 @@ public class MqService {
     public void initHashConsumer() throws ClientException {
         if (!isServer) {
             provider = ClientServiceProvider.loadService();
-            // 初始化 ClientConfiguration
             clientConfiguration = ClientConfiguration.newBuilder()
-                    .setEndpoints(proxyServerAddress)
-                    .build();
+            .setEndpoints(proxyServerAddress)
+            .build();
 
             // 初始化 PushConsumer
             String topic = hashTopic;
@@ -166,7 +164,7 @@ public class MqService {
             String tagString = String.join("||", tags);
             FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
 
-            pushConsumer = provider.newPushConsumerBuilder()
+            hashPushConsumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
                     .setConsumerGroup("hash_consumer") // 设置 Consumer Group
                     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
@@ -264,51 +262,6 @@ public class MqService {
         }
     }
 
-    // 接收远程记录，并且将本地对应的记录删除
-    // public void recieveRemoteRecords() {
-    // if (!isServer) {
-    // ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-    // .setEndpoints(proxyServerAddress)
-    // .build();
-    // String topic = recordTopic;
-    // List<String> tags = compareService.getAllTableNames();
-    // String tagString = String.join("||", tags);
-    // FilterExpression filterExpression = new FilterExpression(tagString,
-    // FilterExpressionType.TAG);
-    // try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
-    // .setClientConfiguration(clientConfiguration)
-    // .setSubscriptionExpressions(Collections.singletonMap(topic,
-    // filterExpression))
-    // .setMessageListener(messageView -> {
-    // LOG.info("Consume message successfully, messageId={}" +
-    // messageView.getMessageId());
-    // Optional<String> tableName = messageView.getTag();
-    // ByteBuffer body = messageView.getBody();
-    // // 反序列化
-    // Kryo kryo = kryoThreadLocal.get();
-    // Input input = new Input(body.array());
-    // BinRecord binRecord = kryo.readObject(input, BinRecord.class);
-    // // 将localBinRecords对应的记录删除
-    // String key = binRecord.getKey();
-    // if (localBinRecords.containsKey(tableName)
-    // && localBinRecords.get(tableName).containsKey(key)
-    // && localBinRecords.get(tableName).get(key).getTime() == binRecord.getTime()
-    // && localBinRecords.get(tableName).get(key).getType() == binRecord.getType())
-    // {
-    // localBinRecords.get(tableName).remove(key);
-    // LOG.debug("Remove local record successfully, key={}" + key);
-    // } else {
-    // LOG.error("Failed to remove local record, key={}" + key);
-    // }
-    // return ConsumeResult.SUCCESS;
-    // })
-    // .build()) {
-    // } catch (ClientException | IOException e) {
-    // e.printStackTrace();
-    // }
-    // }
-
-    // }
 
     private void processRecordMessage(MessageView messageView) {
         String dbAndTable = messageView.getTag().orElse(null);
@@ -353,8 +306,8 @@ public class MqService {
      * 将远端的hash存储到本地，用以后续的对比。
      * 这里存储使用的是一个先进先出的跳表，大小可以自定义。
      */
-    @SuppressWarnings("unchecked")
     public void processHashMessage(MessageView messageView) {
+        System.out.println("Consume message successfully, messageId=" + messageView.getMessageId());
         String dbAndTable = messageView.getTag().orElse(null);
         // dbname__tablename
         String dbName = dbAndTable.split("__")[0];
@@ -378,32 +331,6 @@ public class MqService {
         }
         compareService.addToRemoteHashs(dbAndTable, record.getTimestamp(), record.getHash());
         LOG.debug(messageView.getMessageId() + "Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
-    }
-
-    
-
-    // 接收远程hash，并且将远程的hash存储在remoteHashs中
-    public void recieveRemoteHashs() {
-        if(!isServer){
-            ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-                    .setEndpoints(proxyServerAddress)
-                    .build();
-            String topic = hashTopic;
-            List<String> tags = compareService.getAllTableNames();
-            String tagString = String.join("||", tags);
-            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
-            try (PushConsumer pushConsumer = provider.newPushConsumerBuilder()
-                    .setClientConfiguration(clientConfiguration)
-                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
-                    .setMessageListener(messageView -> {
-                        processHashMessage(messageView);        
-                        return ConsumeResult.SUCCESS;
-                    })
-                    .build()) {
-            } catch (ClientException | IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     public void printLocalBinRecords() {
