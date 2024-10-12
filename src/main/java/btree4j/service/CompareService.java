@@ -204,6 +204,15 @@ public class CompareService {
         }
     }
 
+    public void matchAllHashs(){
+        List<String> dbAndTables = new ArrayList<>();
+        dbAndTables.addAll(localHashs.keySet());
+        for (String dbAndTable : dbAndTables) {
+            isConcistByMerkleHash(dbAndTable);
+        }
+    }
+
+
     /*
      * 如果remoteBinRecords中的记录和localBinRecords中的记录为空，则更新isConcistByRecord对应的值为true
      * 如果remoteBinRecords中的最旧的记录和localBinRecords中最旧的记录有时间(超过当前时间-timeFram)的记录，
@@ -244,7 +253,7 @@ public class CompareService {
 
     public void printAllConsistByRecord() {
         if (!isServer)
-            System.out.println("isConcistByRecord:" + isConcistByRecord);
+            System.out.println("isConcistByRecord:" );
             for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()) {
                 System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
             }
@@ -252,6 +261,7 @@ public class CompareService {
 
     public void printAllConsistByMerkleHash() {
         if (!isServer) {
+            System.out.println("isConcistByMerkleHash:" );
             for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()) {
                 System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
             }

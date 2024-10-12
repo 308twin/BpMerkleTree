@@ -16,6 +16,9 @@ import java.util.*;
 
 @Component
 public class BPMerkleTreeSchedule {
+    @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
+    private boolean isServer;
+
     private ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord;
     private CompareService compareService;
     private MqService   mqService;
@@ -69,13 +72,20 @@ public class BPMerkleTreeSchedule {
     //每10s打印一次record是否一致
     @Scheduled(fixedRate = 10000)
     public void printIsConsistByRecord(){
+        if(!isServer){
+        compareService.matchAllRecords();
         compareService.printAllConsistByRecord();
+        }
+        
     }
 
     //每10s打印一次merkleHash是否一致
     @Scheduled(fixedRate = 10000)
     public void printIsConsistByMerkleHash(){
+        if(!isServer){
+        compareService.matchAllHashs();
         compareService.printAllConsistByMerkleHash();
+        }
     }
 
     @Scheduled(fixedRate = 1000)
