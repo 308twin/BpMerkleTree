@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import com.google.common.cache.CacheBuilder;
+import com.esotericsoftware.minlog.Log;
 import com.google.common.cache.Cache;
 import java.util.concurrent.TimeUnit;
 
@@ -87,6 +88,7 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
+        Log.info("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
         Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
                 k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
