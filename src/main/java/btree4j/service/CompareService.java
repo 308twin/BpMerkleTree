@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Cache;
 import java.util.concurrent.TimeUnit;
+
 @Service
 @ConfigurationProperties(prefix = "my.custom.config")
 public class CompareService {
@@ -33,7 +34,6 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${spring.datasource.url}")
     private String url;
 
-
     private boolean isServer;
     private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
@@ -44,7 +44,6 @@ public class CompareService {
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Boolean> isConcistByRecord;
-     
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -88,17 +87,17 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
-        Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable, 
-        k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
+        Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
+                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
         Map<Long, String> aboutToSendHistorys = aboutToSendHashs.computeIfAbsent(dbAndTable,
-        k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
-       
+                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
         // Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
         // if (tableHashHistorys == null) {
-        //     tableHashHistorys = new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
-        //     localHashs.put(dbAndTable, tableHashHistorys);
+        // tableHashHistorys = new
+        // LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
+        // localHashs.put(dbAndTable, tableHashHistorys);
         // }
         // current time to long
         long time = System.currentTimeMillis();
@@ -128,27 +127,25 @@ public class CompareService {
     // 将记录插入到待插入列表，使用concurrentSkipListMap存储,排序方式是按照时间戳排序
     public void addRecordToInsertRecord(String dbAndTable, long time, String value) {
         Map<Long, String> valueMap = aboutToInsertRecord.computeIfAbsent(
-            dbAndTable,
-            k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue))
-        );
+                dbAndTable,
+                k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue)));
         // if (valueMap == null) {
-        //     valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
-        //         @Override
-        //         public int compare(Long o1, Long o2) {
-        //             return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
-        //         }
-        //     });
-        //     aboutToInsertRecord.put(dbAndTable, valueMap);
+        // valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
+        // @Override
+        // public int compare(Long o1, Long o2) {
+        // return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
+        // }
+        // });
+        // aboutToInsertRecord.put(dbAndTable, valueMap);
         // }
         valueMap.put(time, value);
     }
 
-    public void addToRemoteHashs(String dbAndTable, long time, String hash) {   
+    public void addToRemoteHashs(String dbAndTable, long time, String hash) {
         @SuppressWarnings("unchecked")
-        Map<Long,String> remoteHashsMap = remoteHashs.computeIfAbsent(
-            dbAndTable,
-            k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue))
-        );
+        Map<Long, String> remoteHashsMap = remoteHashs.computeIfAbsent(
+                dbAndTable,
+                k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue)));
         remoteHashsMap.put(time, hash);
     }
 
@@ -199,8 +196,7 @@ public class CompareService {
                 .put(key, typeWithTime);
     }
 
-    
-    public void matchAllRecords(){
+    public void matchAllRecords() {
         List<String> dbAndTables = new ArrayList<>();
         dbAndTables.addAll(localBinRecords.keySet());
         for (String dbAndTable : dbAndTables) {
@@ -246,17 +242,21 @@ public class CompareService {
         }
     }
 
-    public void printAllConsistByRecord(){
-        for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()){
-            System.out.println("dbAndTable:"+entry.getKey()+",isConsistByRecord:"+entry.getValue());
-        }
+    public void printAllConsistByRecord() {
+        if (!isServer)
+            System.out.println("isConcistByRecord:" + isConcistByRecord);
+            for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()) {
+                System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
+            }
     }
 
-    public void printAllConsistByMerkleHash(){
-        System.out.println("printAllConsistByMerkleHash");
-        for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()){
-            System.out.println("dbAndTable:"+entry.getKey()+",isConsistByMerkleHash:"+entry.getValue());
+    public void printAllConsistByMerkleHash() {
+        if (!isServer) {
+            for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()) {
+                System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
+            }
         }
+
     }
 
     /*
@@ -278,7 +278,7 @@ public class CompareService {
         return jdbcTemplate.queryForList(sql, String.class);
     }
 
-    //将所有BP树刷入磁盘
+    // 将所有BP树刷入磁盘
     public void flushAllBtree() {
         for (Map.Entry<String, BTree> entry : localBTrees.entrySet()) {
             String dbAndTable = entry.getKey();
@@ -291,24 +291,25 @@ public class CompareService {
         }
     }
 
-    //根据数据库的表初始化BP树
+    // 根据数据库的表初始化BP树
     public void initBtree() {
         List<String> tables = getAllTableNames();
         String dbName = getDatabaseNameFromUrl(url);
         for (String table : tables) {
-            String dbAndTable =  dbName + "__" + table;
+            String dbAndTable = dbName + "__" + table;
             try {
                 BTree bTree = getBTree(dbAndTable);
-                //先查找该table的key和update_time_on_chain字段
-                //`key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-                //`update_time_on_chain` timestamp(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3),
+                // 先查找该table的key和update_time_on_chain字段
+                // `key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+                // `update_time_on_chain` timestamp(3) NULL DEFAULT NULL ON UPDATE
+                // CURRENT_TIMESTAMP(3),
                 // String sql = "SELECT key, update_time_on_chain FROM " + table;
                 // List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
                 // for (Map<String, Object> row : rows) {
-                //     String key = (String) row.get("key");
-                //     String update_time_on_chain = row.get("update_time_on_chain").toString();
-                //     long time = Utils.convertStringToLong(update_time_on_chain);
-                //     addRecordToInsertRecord(dbAndTable, time, key);
+                // String key = (String) row.get("key");
+                // String update_time_on_chain = row.get("update_time_on_chain").toString();
+                // long time = Utils.convertStringToLong(update_time_on_chain);
+                // addRecordToInsertRecord(dbAndTable, time, key);
                 // }
 
             } catch (BTreeException e) {
@@ -323,8 +324,5 @@ public class CompareService {
         // 提取最后一个斜杠后的部分作为数据库名
         return urlWithoutParams.substring(urlWithoutParams.lastIndexOf("/") + 1);
     }
-
-    
-    
 
 }
