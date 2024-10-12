@@ -88,7 +88,7 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
-        Log.info("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
+        System.out.println("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
         Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
                 k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
@@ -163,7 +163,7 @@ public class CompareService {
         if (localHashsMap == null && remoteHashsMap == null) {
             return;
         }
-        if (localHashsMap == null || remoteHashsMap == null) {
+        if (remoteHashsMap == null) {
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
@@ -228,6 +228,12 @@ public class CompareService {
             isConcistByRecord.put(dbAndTable, true);
             return;
         }
+
+        if(remoteRecords==null){
+            isConcistByRecord.put(dbAndTable, true);
+            return;
+        }
+
         // 遍历localRecords,如果localRecord中的TypeWithTime的值存在于remoteRecords中，则删除localRecord中的TypeWithTime，以及remoteRecords中的TypeWithTime
         if (localRecords != null && remoteRecords != null) {
             for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
