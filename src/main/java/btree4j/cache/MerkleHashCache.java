@@ -22,7 +22,7 @@ public class MerkleHashCache {
     // value : merkleHash
     // 存储本地生成的历史merkleHash
     @Bean("localHashs")
-    public ConcurrentHashMap<String,Map> localHashs() {
+    public ConcurrentHashMap<String,Set> localHashs() {
         return new ConcurrentHashMap<>();
     }
 
@@ -35,7 +35,7 @@ public class MerkleHashCache {
     // value : merkleHash
     // 存储远程生成的历史merkleHash
     @Bean("remoteHashs")
-    public ConcurrentHashMap<String,Map> remoteHashs() {
+    public ConcurrentHashMap<String,Set> remoteHashs() {
         return new ConcurrentHashMap<>();
     }
 
