@@ -116,11 +116,13 @@ public class CompareService {
         System.out.println("Success insert key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
     }
 
-    public void removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
+    public String removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.removeValue(k, time);
-        System.out.println("Success remove key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
+        String newestHash = btree.getRootMerkleHash();
+        System.out.println("Success remove key:" + value + ",newest root hash is : " + newestHash);
+        return newestHash;
     }
 
     public String getBTreeRootMerkleHash(String dbAndTable) throws BTreeException {

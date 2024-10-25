@@ -162,6 +162,7 @@ public class CanalMessageListenerWithTaskExecutor {
                     // 由于删除操作很少进行，所以直接删除
                     compareService.removeKeyFromBtree(dbName + "__" + tableName, primaryKey,
                             Utils.convertStringToLong(update_time_on_chain));
+                    compareService.insertHashToLocalHashs(dbName+"__"+tableName, newestHash);
 
                 } else if (rowChange.getEventType() == CanalEntry.EventType.CREATE) {
                     // CREATE事件只需表名
