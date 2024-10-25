@@ -88,7 +88,7 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
-        Log.info("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
+        System.out.println("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
         Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
                 k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
@@ -114,11 +114,13 @@ public class CompareService {
         System.out.println("Success insert key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
     }
 
-    public void removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
+    public String removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.removeValue(k, time);
-        System.out.println("Success remove key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
+        String newestHash = btree.getRootMerkleHash();
+        System.out.println("Success remove key:" + value + ",newest root hash is : " + newestHash);
+        return newestHash;
     }
 
     public String getBTreeRootMerkleHash(String dbAndTable) throws BTreeException {
@@ -131,15 +133,6 @@ public class CompareService {
         Map<Long, String> valueMap = aboutToInsertRecord.computeIfAbsent(
                 dbAndTable,
                 k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue)));
-        // if (valueMap == null) {
-        // valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
-        // @Override
-        // public int compare(Long o1, Long o2) {
-        // return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
-        // }
-        // });
-        // aboutToInsertRecord.put(dbAndTable, valueMap);
-        // }
         valueMap.put(time, value);
     }
 
@@ -163,7 +156,8 @@ public class CompareService {
         if (localHashsMap == null && remoteHashsMap == null) {
             return;
         }
-        if (localHashsMap == null || remoteHashsMap == null) {
+        if (localHashsMap != null && remoteHashsMap == null) {
+            System.out.println("remote hashmap is null:"+dbAndTable);
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
@@ -226,6 +220,10 @@ public class CompareService {
 
         if (localRecords == null && remoteRecords == null) {
             isConcistByRecord.put(dbAndTable, true);
+            return;
+        }
+        if(localRecords != null && remoteRecords == null){
+            isConcistByRecord.put(dbAndTable, false);
             return;
         }
         // 遍历localRecords,如果localRecord中的TypeWithTime的值存在于remoteRecords中，则删除localRecord中的TypeWithTime，以及remoteRecords中的TypeWithTime
