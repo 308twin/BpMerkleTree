@@ -69,14 +69,15 @@ public class MqService {
 
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
-    private ConcurrentHashMap<String, Map> localHashs;
+    private ConcurrentHashMap<String, Set> localHashs;
     private ConcurrentHashMap<String, Map> aboutToSendHashs;
-    private ConcurrentHashMap<String, Map> remoteHashs;
+    private ConcurrentHashMap<String, Set> remoteHashs;
     private CompareService compareService;
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
-            ConcurrentHashMap<String, Map> localHashs, ConcurrentHashMap<String, Map> remoteHashs,
+            ConcurrentHashMap<String, Set> localHashs,
+             ConcurrentHashMap<String, Set> remoteHashs,
             ConcurrentHashMap<String, Map> aboutToSendHashs,
             CompareService compareService) {
         this.remoteBinRecords = remoteBinRecords;
@@ -205,8 +206,8 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send message successfully, messageId={}" + sendReceipt.getMessageId() +
-                                "tag=" + dbAndTable);
+                        LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() +
+                                " tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                     } catch (ClientException e) {
@@ -249,8 +250,8 @@ public class MqService {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
                         LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() 
-                        + "topic = " + hashTopic 
-                        + "tag=" + dbAndTable);
+                        + " topic = " + hashTopic 
+                        + " tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                         
