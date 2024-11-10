@@ -333,7 +333,7 @@ public class MqService {
             return;
         }
         compareService.addToRemoteHashs(dbAndTable, record.getTimestamp(), record.getHash());
-        LOG.debug("Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
+        LOG.info("Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
     }
 
     public void printLocalBinRecords() {
