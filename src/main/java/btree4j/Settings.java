@@ -46,7 +46,7 @@ public final class Settings {
             File propFile = new File(userDir, PROPERTY_FILE_NAME);
             if (propFile.exists()) {
                 properties.load(new FileInputStream(propFile));
-                LOG.info("Loaded btree4j.properties in: " + propFile.getAbsolutePath());
+                LOG.debug("Loaded btree4j.properties in: " + propFile.getAbsolutePath());
             }
         } catch (IOException e) {
             throw new RuntimeException(

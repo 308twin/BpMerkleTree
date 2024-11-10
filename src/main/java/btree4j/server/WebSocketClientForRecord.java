@@ -23,27 +23,27 @@ public class WebSocketClientForRecord {
         StandardWebSocketClient client = new StandardWebSocketClient();
         try {
             WebSocketSession session = client.doHandshake(new MyClientWebSocketHandler(), serverUri).get();
-            System.out.println("Connected to server(record): " + serverUri);
+            //System.out.println("Connected to server(record): " + serverUri);
         } catch (Exception e) {
-            System.out.println("Failed to connect(record): " + e.getMessage());
+            //System.out.println("Failed to connect(record): " + e.getMessage());
         }
     }
 
     private class MyClientWebSocketHandler extends TextWebSocketHandler {
         @Override
         public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-            System.out.println("WebSocket Client connected(record)");
+            //System.out.println("WebSocket Client connected(record)");
             session.sendMessage(new TextMessage("Hello from Client(record)"));
         }
 
         @Override
         protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-            System.out.println("Received from server(record): " + message.getPayload());
+            //System.out.println("Received from server(record): " + message.getPayload());
         }
 
         @Override
         public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-            System.out.println("WebSocket Client disconnected(record)");
+            //System.out.println("WebSocket Client disconnected(record)");
         }
     }
 }

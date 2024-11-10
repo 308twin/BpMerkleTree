@@ -34,7 +34,7 @@ public class SimpleCanalClientExample {
     // int size = message.getEntries().size();
     // if (batchId == -1 || size == 0) {
     // emptyCount++;
-    // System.out.println("empty count : " + emptyCount);
+    // //System.out.println("empty count : " + emptyCount);
     // try {
     // Thread.sleep(1000);
     // } catch (InterruptedException e) {
@@ -49,7 +49,7 @@ public class SimpleCanalClientExample {
     // // connector.rollback(batchId); // 处理失败, 回滚数据
     // }
     //
-    // System.out.println("empty too many times, exit");
+    // //System.out.println("empty too many times, exit");
     // } finally {
     // connector.disconnect();
     // }
@@ -71,7 +71,7 @@ public class SimpleCanalClientExample {
             }
 
             EventType eventType = rowChage.getEventType();
-            System.out.println(String.format("================&gt; binlog[%s:%s] , name[%s,%s] , eventType : %s",
+            //System.out.println(String.format("================&gt; binlog[%s:%s] , name[%s,%s] , eventType : %s",
                     entry.getHeader().getLogfileName(), entry.getHeader().getLogfileOffset(),
                     entry.getHeader().getSchemaName(), entry.getHeader().getTableName(),
                     eventType));
@@ -82,9 +82,9 @@ public class SimpleCanalClientExample {
                 } else if (eventType == EventType.INSERT) {
                     printColumn(rowData.getAfterColumnsList());
                 } else {
-                    System.out.println("-------&gt; before");
+                    //System.out.println("-------&gt; before");
                     printColumn(rowData.getBeforeColumnsList());
-                    System.out.println("-------&gt; after");
+                    //System.out.println("-------&gt; after");
                     printColumn(rowData.getAfterColumnsList());
                 }
             }
@@ -93,7 +93,7 @@ public class SimpleCanalClientExample {
 
     private static void printColumn(List<Column> columns) {
         for (Column column : columns) {
-            System.out.println(column.getName() + " : " + column.getValue() + "    update=" + column.getUpdated());
+            //System.out.println(column.getName() + " : " + column.getValue() + "    update=" + column.getUpdated());
         }
     }
 

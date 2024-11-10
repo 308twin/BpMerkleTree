@@ -92,7 +92,7 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
-        System.out.println("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
+        //System.out.println("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
         Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
                 k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
@@ -169,23 +169,23 @@ public class CompareService {
                 .get(dbAndTable);
         if ((localHashsMap == null || localHashsMap.size() == 0)
                 && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
-            System.out.println("localHashsMap is null and remoteHashsMap is null");
+            //System.out.println("localHashsMap is null and remoteHashsMap is null");
             isConcistByMerkleHash.put(dbAndTable, true);
             return;
         }
         if (localHashsMap.size() != 0
                 && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
-            System.out.println("localHashsMap is not null and remoteHashsMap is null");
+            //System.out.println("localHashsMap is not null and remoteHashsMap is null");
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
 
         if ((localHashsMap == null || localHashsMap.size() == 0)
                 && remoteHashsMap.size() != 0) {
-            System.out.println("localHashsMap is null and remoteHashsMap is not null");
+            //System.out.println("localHashsMap is null and remoteHashsMap is not null");
             // print remote
             for (Map.Entry<Long, String> entry : remoteHashsMap.entrySet()) {
-                System.out.println("time:" + entry.getKey() + ",hash:" + entry.getValue());
+                //System.out.println("time:" + entry.getKey() + ",hash:" + entry.getValue());
             }
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
@@ -290,13 +290,13 @@ public class CompareService {
         }
 
         // 打印localRecords和remoteRecords
-        System.out.println("localRecords:");
+        //System.out.println("localRecords:");
         for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
-            System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+            //System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
-        System.out.println("remoteRecords:");
+        //System.out.println("remoteRecords:");
         for (Map.Entry<String, TypeWithTime> entry : remoteRecords.entrySet()) {
-            System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+            //System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
 
         Long remoteOldestTime = remoteRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo)
@@ -314,17 +314,17 @@ public class CompareService {
 
     public void printAllConsistByRecord() {
         if (!isServer)
-            System.out.println("isConcistByRecord:");
+            //System.out.println("isConcistByRecord:");
         for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()) {
-            System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
+            //System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
         }
     }
 
     public void printAllConsistByMerkleHash() {
         if (!isServer) {
-            System.out.println("isConcistByMerkleHash:");
+            //System.out.println("isConcistByMerkleHash:");
             for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()) {
-                System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
+                //System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
             }
         }
 

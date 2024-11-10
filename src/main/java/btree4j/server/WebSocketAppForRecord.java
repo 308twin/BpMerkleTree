@@ -41,10 +41,10 @@ public class WebSocketAppForRecord implements WebSocketConfigurer {
     @PostConstruct
     public void init() {
         if (isServer) {
-            System.out.println("Running as WebSocket Server for Record");
+            //System.out.println("Running as WebSocket Server for Record");
             // 服务器端的 WebSocket 处理由 `registerWebSocketHandlers` 自动注册
         } else {
-            System.out.println("Running as WebSocket Client for Record");
+            //System.out.println("Running as WebSocket Client for Record");
             // 启动 WebSocket 客户端
             webSocketClient.startClient();
         }

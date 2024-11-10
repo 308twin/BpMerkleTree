@@ -23,27 +23,27 @@ public class WebSocketClientForHash {
         StandardWebSocketClient client = new StandardWebSocketClient();
         try {
             WebSocketSession session = client.doHandshake(new MyClientWebSocketHandler(), serverUri).get();
-            System.out.println("Connected to server(hash): " + serverUri);
+            //System.out.println("Connected to server(hash): " + serverUri);
         } catch (Exception e) {
-            System.out.println("Failed to connect(hash): " + e.getMessage());
+            //System.out.println("Failed to connect(hash): " + e.getMessage());
         }
     }
 
     private class MyClientWebSocketHandler extends TextWebSocketHandler {
         @Override
         public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-            System.out.println("WebSocket Client connected(hash)");
+            //System.out.println("WebSocket Client connected(hash)");
             session.sendMessage(new TextMessage("Hello from Client(hash)"));
         }
 
         @Override
         protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-            System.out.println("Received from server(hash): " + message.getPayload());
+            //System.out.println("Received from server(hash): " + message.getPayload());
         }
 
         @Override
         public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-            System.out.println("WebSocket Client disconnected(hash)");
+            //System.out.println("WebSocket Client disconnected(hash)");
         }
     }
 }

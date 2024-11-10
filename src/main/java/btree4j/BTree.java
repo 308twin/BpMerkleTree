@@ -678,7 +678,7 @@ public class BTree extends Paged {
             int level = 0; // 用来记录层次
             while (!queue.isEmpty()) {
                 int levelSize = queue.size(); // 当前层节点的数量
-                System.out.println("Level " + level + ":");
+                //System.out.println("Level " + level + ":");
 
                 for (int i = 0; i < levelSize; i++) {
                     BTreeNode current = queue.poll();
@@ -699,10 +699,10 @@ public class BTree extends Paged {
                             System.out.print(" Child " + current.ptrs[j] + " ");
                         }
                     }
-                    System.out.println();
+                    //System.out.println();
                 }
                 level++;
-                System.out.println(); // 每层打印结束后换行
+                //System.out.println(); // 每层打印结束后换行
             }
         }
 
@@ -715,7 +715,7 @@ public class BTree extends Paged {
 
                 // 打印当前节点的keys
                 for (int i = 0; i < current.keys.length; i++) {
-                    System.out.println("Key: " + current.keys[i]);
+                    //System.out.println("Key: " + current.keys[i]);
                 }
 
                 // 如果是分支节点，将子节点加入队列

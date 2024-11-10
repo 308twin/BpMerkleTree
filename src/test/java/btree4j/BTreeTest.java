@@ -43,18 +43,18 @@ public class BTreeTest {
 
         BTree btree = new BTree(tmpFile);
         btree.init(/* bulkload */ true);
-        System.out.println(btree.getRootMerkleHash());
+        //System.out.println(btree.getRootMerkleHash());
 
         for (int i = 100; i <= 500; i++) {
             Value k = new Value("k" + i);
             long v = 2;
             btree.addValue(k, v);
-            System.out.println(btree.getRootMerkleHash());
+            //System.out.println(btree.getRootMerkleHash());
 
         }
         // btree.flush();
 
-        System.out.println(btree.getRootMerkleHash());
+        //System.out.println(btree.getRootMerkleHash());
         //btree.visualizeBTree();
 
         // for (int i = 0; i < 1000; i++) {
@@ -70,7 +70,7 @@ public class BTreeTest {
         //
         // @Override
         // public boolean indexInfo(Value value, long pointer) {
-        // //System.out.println(pointer);
+        // ////System.out.println(pointer);
         // return true;
         // }
         //
@@ -96,10 +96,10 @@ public class BTreeTest {
        
         for (int i = 999; i >= 100; i--) {
             Value k = new Value("k" + i);
-            System.out.println(k);
+            //System.out.println(k);
             long v = i;
             btree.addValue(k, v);
-            System.out.println(btree.getRootMerkleHash());
+            //System.out.println(btree.getRootMerkleHash());
     
         }
         btree.visualizeBTree();
@@ -122,10 +122,10 @@ public class BTreeTest {
        
         for (int i = 100; i <= 999; i++) {
             Value k = new Value("k" + i);
-            System.out.println(k);
+            //System.out.println(k);
             long v = i;
             btree.addValue(k, v);
-            System.out.println(btree.getRootMerkleHash());
+            //System.out.println(btree.getRootMerkleHash());
     
             }
 
@@ -211,7 +211,7 @@ public class BTreeTest {
 
     private static void println(String msg) {
         if (DEBUG) {
-            System.out.println(msg);
+            //System.out.println(msg);
         }
     }
 

@@ -26,7 +26,7 @@ public class CanalClient implements InitializingBean {
         try {
             //打开连接
             connector.connect();
-            System.out.println("CanalClient start");
+            //System.out.println("CanalClient start");
             //订阅数据库表,全部表
             connector.subscribe(".*\\..*");
             //回滚到未进行ack的地方，下次fetch的时候，可以从最后一个没有ack的地方开始拿
@@ -80,13 +80,13 @@ public class CanalClient implements InitializingBean {
             //获取操作类型：insert/update/delete类型
             EventType eventType = rowChage.getEventType();
             //打印Header信息
-            System.out.println(String.format("================》; binlog[%s:%s] , name[%s,%s] , eventType : %s",
+            //System.out.println(String.format("================》; binlog[%s:%s] , name[%s,%s] , eventType : %s",
                     entry.getHeader().getLogfileName(), entry.getHeader().getLogfileOffset(),
                     entry.getHeader().getSchemaName(), entry.getHeader().getTableName(),
                     eventType));
             //判断是否是DDL语句
             if (rowChage.getIsDdl()) {
-                System.out.println("================》;isDdl: true,sql:" + rowChage.getSql());
+                //System.out.println("================》;isDdl: true,sql:" + rowChage.getSql());
             }
             //获取RowChange对象里的每一行数据，打印出来
             for (RowData rowData : rowChage.getRowDatasList()) {
@@ -99,10 +99,10 @@ public class CanalClient implements InitializingBean {
                     //如果是更新的语句
                 } else {
                     //变更前的数据
-                    System.out.println("------->; before");
+                    //System.out.println("------->; before");
                     printColumn(rowData.getBeforeColumnsList());
                     //变更后的数据
-                    System.out.println("------->; after");
+                    //System.out.println("------->; after");
                     printColumn(rowData.getAfterColumnsList());
                 }
             }
@@ -111,7 +111,7 @@ public class CanalClient implements InitializingBean {
 
     private static void printColumn(List<Column> columns) {
         for (Column column : columns) {
-            System.out.println(column.getName() + " : " + column.getValue() + "    update=" + column.getUpdated());
+            //System.out.println(column.getName() + " : " + column.getValue() + "    update=" + column.getUpdated());
         }
     }
 }

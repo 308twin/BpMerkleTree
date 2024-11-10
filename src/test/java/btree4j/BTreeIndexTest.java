@@ -269,7 +269,7 @@ public class BTreeIndexTest {
 
     private static void println(String msg) {
         if (DEBUG) {
-            System.out.println(msg);
+            //System.out.println(msg);
         }
     }
 

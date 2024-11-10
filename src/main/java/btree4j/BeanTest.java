@@ -8,6 +8,6 @@ import org.springframework.stereotype.Component;
 public class BeanTest {
     @PostConstruct
     public void init() {
-        System.out.println("MyBean的PostConstruct方法被调用");
+        //System.out.println("MyBean的PostConstruct方法被调用");
     }
 }

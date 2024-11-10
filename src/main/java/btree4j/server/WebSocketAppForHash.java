@@ -41,10 +41,10 @@ public class WebSocketAppForHash implements WebSocketConfigurer {
     @PostConstruct
     public void init() {
         if (isServer) {
-            System.out.println("Running as WebSocket Server for Hash");
+            //System.out.println("Running as WebSocket Server for Hash");
             // 服务器端的 WebSocket 处理由 `registerWebSocketHandlers` 自动注册
         } else {
-            System.out.println("Running as WebSocket Client for Hash");
+            //System.out.println("Running as WebSocket Client for Hash");
             // 启动 WebSocket 客户端
             webSocketClient.startClient();
         }
