@@ -40,6 +40,9 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
     private boolean isServer;
 
+    @org.springframework.beans.factory.annotation.Value("${my.custom.config.strictMode}")
+    private boolean strictMode;
+
     public String newestHashAfterRemove;   // 删除key之后的最新hash 之所以要记录这个是因为删除不存在key之后 root hash可能不变化
     private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
@@ -402,6 +405,19 @@ public class CompareService {
         String urlWithoutParams = url.split("\\?")[0];
         // 提取最后一个斜杠后的部分作为数据库名
         return urlWithoutParams.substring(urlWithoutParams.lastIndexOf("/") + 1);
+    }
+
+    public Object getCompareResult(String channelType,String channelName){
+        String dbName = this.getDatabaseNameFromUrl(url);
+        Boolean resultByMerkleHash = isConcistByMerkleHash.get(dbName + "__" +channelType+"_"+ channelName);
+        Boolean resultByRecord = isConcistByRecord.get(dbName + "__" +channelType+"_"+ channelName);
+        if(resultByMerkleHash == null || resultByRecord == null)
+            return "指定的通道还未存在一致性对比结果";
+        if(strictMode)
+            return resultByMerkleHash && resultByRecord;
+        else
+            return resultByMerkleHash || resultByRecord;
+        
     }
 
 }
