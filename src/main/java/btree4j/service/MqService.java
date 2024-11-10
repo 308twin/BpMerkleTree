@@ -115,7 +115,7 @@ public class MqService {
 
     }
 
-    //@PostConstruct
+    @PostConstruct
     public void initRecordConsumer() throws ClientException {
         if (!isServer) {
             provider = ClientServiceProvider.loadService();
@@ -135,7 +135,7 @@ public class MqService {
             recordPushConsumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
                     .setConsumerGroup("record_consumer") // 设置 Consumer Group
-                    .setSubscriptionExpressions(Collections.singletonMap("hash", filterExpression))
+                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
                     .setMessageListener(messageView -> {
                         // LOG.info("Consume message successfully, messageId="+
                         // messageView.getMessageId());
@@ -287,7 +287,7 @@ public class MqService {
             return;
         }
 
-        System.out.println("Consume message successfully, messageId=" + messageView.getMessageId());
+        System.out.println("Consume record message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
         if (localBinRecords.containsKey(dbAndTable)
                 && localBinRecords.get(dbAndTable).containsKey(key)
@@ -331,7 +331,7 @@ public class MqService {
             return;
         }
         compareService.addToRemoteHashs(dbAndTable, record.getTimestamp(), record.getHash());
-        LOG.info(messageView.getMessageId() + "Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
+        LOG.info( "Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
     }
 
     public void printLocalBinRecords() {

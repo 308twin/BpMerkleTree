@@ -64,8 +64,10 @@ public class BPMerkleTreeSchedule {
         compareService.initBtree();
     }
 
-    @Scheduled(fixedRate = 10000)
+    @Scheduled(fixedRate = 5000)
     public void printLocalBinRecords(){
+        if(isServer)
+            return;
         mqService.printLocalBinRecordsWhereTimeRangeBiggerThan5s();
     }
 

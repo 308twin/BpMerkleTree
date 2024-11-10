@@ -37,7 +37,9 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${spring.datasource.url}")
     private String url;
 
+    @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
     private boolean isServer;
+
     private ConcurrentHashMap<String, Set> localHashs;
     private ConcurrentHashMap<String, Set> remoteHashs;
     private ConcurrentHashMap<String, Map> aboutToSendHashs;
@@ -163,13 +165,26 @@ public class CompareService {
     public void isConcistByMerkleHash(String dbAndTable) {
         LimitedLinkedHashSet<String> localHashsSet = (LimitedLinkedHashSet) localHashs.get(dbAndTable);
         LimitedLinkedHashSet<String> remoteHashsSet = (LimitedLinkedHashSet) remoteHashs.get(dbAndTable);
-        if (localHashsSet == null && remoteHashsSet == null) {
+        if ((localHashsSet == null || localHashsSet.size()==0) 
+        && (remoteHashsSet == null || remoteHashsSet.size()==0)) {
+            System.out.println("localHashsSet is null and remoteHashsSet is null");
+            isConcistByMerkleHash.put(dbAndTable, true);
             return;
         }
-        if (remoteHashsSet == null) {
+        if ( localHashsSet.size()!=0 
+        && (remoteHashsSet == null || remoteHashsSet.size()==0)) {
+            System.out.println("localHashsSet is not null and remoteHashsSet is null");
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
+
+        if ((localHashsSet ==null || localHashsSet.size()==0)
+        && remoteHashsSet.size()!=0) {
+            System.out.println("localHashsSet is null and remoteHashsSet is not null");
+            isConcistByMerkleHash.put(dbAndTable, false);
+            return;
+        }
+
         boolean isConcist = false;
 
         String newestConcistHash = null;
@@ -191,6 +206,7 @@ public class CompareService {
             while (localHashsIterator.hasNext()) {
                 String localHash = localHashsIterator.next();
                 if (localHash.equals(newestConcistHash)) {
+                    localHashsIterator.remove();
                     break;
                 }
                 localHashsIterator.remove();
@@ -199,6 +215,7 @@ public class CompareService {
             while (remoteHashsIterator.hasNext()) {
                 String remoteHash = remoteHashsIterator.next();
                 if (remoteHash.equals(newestConcistHash)) {
+                    remoteHashsIterator.remove();
                     break;
                 }
                 remoteHashsIterator.remove();
@@ -249,13 +266,21 @@ public class CompareService {
         ConcurrentHashMap<String, TypeWithTime> localRecords = localBinRecords.get(dbAndTable);
         ConcurrentHashMap<String, TypeWithTime> remoteRecords = remoteBinRecords.get(dbAndTable);
 
-        if (localRecords == null && remoteRecords == null) {
+        if ((localRecords == null || localRecords.size() == 0)
+                && (remoteRecords == null || remoteRecords.size() == 0)) {
             isConcistByRecord.put(dbAndTable, true);
             return;
         }
 
-        if (remoteRecords == null) {
-            isConcistByRecord.put(dbAndTable, true);
+        if ((localRecords == null || localRecords.size() == 0)
+                && remoteRecords.size() != 0) {
+            isConcistByRecord.put(dbAndTable, false);
+            return;
+        }
+
+        if ((remoteRecords == null || remoteRecords.size() == 0)
+                && localRecords.size() != 0) {
+            isConcistByRecord.put(dbAndTable, false);
             return;
         }
 
@@ -269,6 +294,16 @@ public class CompareService {
                     remoteRecords.remove(key);
                 }
             }
+        }
+
+        //打印localRecords和remoteRecords
+        System.out.println("localRecords:");
+        for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
+            System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+        }
+        System.out.println("remoteRecords:");
+        for (Map.Entry<String, TypeWithTime> entry : remoteRecords.entrySet()) {
+            System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
 
         Long remoteOldestTime = remoteRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo)
