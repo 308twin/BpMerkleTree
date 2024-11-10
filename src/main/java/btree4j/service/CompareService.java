@@ -40,8 +40,8 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
     private boolean isServer;
 
-    private ConcurrentHashMap<String, Set> localHashs;
-    private ConcurrentHashMap<String, Set> remoteHashs;
+    private ConcurrentHashMap<String, Map> localHashs;
+    private ConcurrentHashMap<String, Map> remoteHashs;
     private ConcurrentHashMap<String, Map> aboutToSendHashs;
     private ConcurrentHashMap<String, Boolean> isConcistByMerkleHash;
     private ConcurrentHashMap<String, BTree> localBTrees;
@@ -54,9 +54,9 @@ public class CompareService {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, Set> localHashs,
-            ConcurrentHashMap<String, Set> remoteHashs,
-            ConcurrentHashMap<String, Map> aboutToSendHashs,
+    public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
+            @Qualifier("remoteHashs") ConcurrentHashMap<String, Map> remoteHashs,
+            @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, Map> aboutToSendHashs,
             ConcurrentHashMap<String, BTree> localBTrees,
             ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord,
             ConcurrentHashMap<String, Boolean> isConcistByMerkleHash,
@@ -93,8 +93,8 @@ public class CompareService {
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
         System.out.println("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
-        Set<String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
-                k -> new LimitedLinkedHashSet(localHashMapMaxSize));
+        Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
+                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
         Map<Long, String> aboutToSendHistorys = aboutToSendHashs.computeIfAbsent(dbAndTable,
                 k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
@@ -107,7 +107,7 @@ public class CompareService {
         // }
         // current time to long
         long time = System.currentTimeMillis();
-        tableHashHistorys.add(hash);
+        tableHashHistorys.put(time, hash);
         aboutToSendHistorys.put(time, hash);
     }
 
@@ -150,10 +150,10 @@ public class CompareService {
     }
 
     public void addToRemoteHashs(String dbAndTable, long time, String hash) {
-        Set<String> remoteHashsSet = remoteHashs.computeIfAbsent(
+        Map<Long, String> remoteHashsSet = remoteHashs.computeIfAbsent(
                 dbAndTable,
-                k -> new LimitedLinkedHashSet(localHashMapMaxSize));
-        remoteHashsSet.add(hash);
+                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
+        remoteHashsSet.put(time, hash);
     }
 
     // 通过remoteHashs中的hash和localHashs中的hash进行比较，如果不一致则返回false
@@ -163,24 +163,30 @@ public class CompareService {
     // 如果remoteHashs中的hash和localHashs中的hash都为空，则不修改isConcistByMerkleHash对应的值
     // 最后，把localHashs和remoteHashs中的数据清空
     public void isConcistByMerkleHash(String dbAndTable) {
-        LimitedLinkedHashSet<String> localHashsSet = (LimitedLinkedHashSet) localHashs.get(dbAndTable);
-        LimitedLinkedHashSet<String> remoteHashsSet = (LimitedLinkedHashSet) remoteHashs.get(dbAndTable);
-        if ((localHashsSet == null || localHashsSet.size()==0) 
-        && (remoteHashsSet == null || remoteHashsSet.size()==0)) {
-            System.out.println("localHashsSet is null and remoteHashsSet is null");
+        LimitedSizeConcurrentSkipListMapDescending localHashsMap = (LimitedSizeConcurrentSkipListMapDescending) localHashs
+                .get(dbAndTable);
+        LimitedSizeConcurrentSkipListMapDescending remoteHashsMap = (LimitedSizeConcurrentSkipListMapDescending) remoteHashs
+                .get(dbAndTable);
+        if ((localHashsMap == null || localHashsMap.size() == 0)
+                && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
+            System.out.println("localHashsMap is null and remoteHashsMap is null");
             isConcistByMerkleHash.put(dbAndTable, true);
             return;
         }
-        if ( localHashsSet.size()!=0 
-        && (remoteHashsSet == null || remoteHashsSet.size()==0)) {
-            System.out.println("localHashsSet is not null and remoteHashsSet is null");
+        if (localHashsMap.size() != 0
+                && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
+            System.out.println("localHashsMap is not null and remoteHashsMap is null");
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
 
-        if ((localHashsSet ==null || localHashsSet.size()==0)
-        && remoteHashsSet.size()!=0) {
-            System.out.println("localHashsSet is null and remoteHashsSet is not null");
+        if ((localHashsMap == null || localHashsMap.size() == 0)
+                && remoteHashsMap.size() != 0) {
+            System.out.println("localHashsMap is null and remoteHashsMap is not null");
+            // print remote
+            for (Map.Entry<Long, String> entry : remoteHashsMap.entrySet()) {
+                System.out.println("time:" + entry.getKey() + ",hash:" + entry.getValue());
+            }
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
@@ -188,38 +194,25 @@ public class CompareService {
         boolean isConcist = false;
 
         String newestConcistHash = null;
-        // 从后往前遍历localHashs,如果localHashs中的hash存在于remoteHashs中，则更新isConcist为true
-        if (localHashsSet != null && remoteHashsSet != null) {
-            Iterator<String> it = localHashsSet.reverseIterator();
-            while (it.hasNext()) {
-                String localHash = it.next();
-                if (remoteHashsSet.contains(localHash)) {
+
+        // 从大到小遍历localHashs,如果localHashs中的hash存在于remoteHashs中，则更新isConcist为true
+        if (localHashsMap != null && remoteHashsMap != null) {
+            for (Map.Entry<Long, String> entry : localHashsMap.entrySet()) {
+                Long time = entry.getKey();
+                String localHash = entry.getValue();
+                // 在remoteHashs中从后往前查找localHash
+                if (remoteHashsMap.containsValue(localHash)) {
                     isConcist = true;
                     newestConcistHash = localHash;
                     break;
                 }
+
             }
         }
         // 删除localHashs和remoteHashs中的在newestConcistHash之前插入的数据
         if (isConcist) {
-            Iterator<String> localHashsIterator = localHashsSet.iterator();
-            while (localHashsIterator.hasNext()) {
-                String localHash = localHashsIterator.next();
-                if (localHash.equals(newestConcistHash)) {
-                    localHashsIterator.remove();
-                    break;
-                }
-                localHashsIterator.remove();
-            }
-            Iterator<String> remoteHashsIterator = remoteHashsSet.iterator();
-            while (remoteHashsIterator.hasNext()) {
-                String remoteHash = remoteHashsIterator.next();
-                if (remoteHash.equals(newestConcistHash)) {
-                    remoteHashsIterator.remove();
-                    break;
-                }
-                remoteHashsIterator.remove();
-            }
+            remoteHashsMap.removeKeysLessThan(remoteHashsMap.getKeyFromValue(newestConcistHash));
+            localHashsMap.removeKeysLessThan(localHashsMap.getKeyFromValue(newestConcistHash));
         }
 
         isConcistByMerkleHash.put(dbAndTable, isConcist);
@@ -296,7 +289,7 @@ public class CompareService {
             }
         }
 
-        //打印localRecords和remoteRecords
+        // 打印localRecords和remoteRecords
         System.out.println("localRecords:");
         for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
             System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());

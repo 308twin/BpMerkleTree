@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.PostConstruct;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import btree4j.entity.BinRecord;
@@ -69,16 +70,16 @@ public class MqService {
 
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
-    private ConcurrentHashMap<String, Set> localHashs;
+    private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> aboutToSendHashs;
-    private ConcurrentHashMap<String, Set> remoteHashs;
+    private ConcurrentHashMap<String, Map> remoteHashs;
     private CompareService compareService;
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
-            ConcurrentHashMap<String, Set> localHashs,
-             ConcurrentHashMap<String, Set> remoteHashs,
-            ConcurrentHashMap<String, Map> aboutToSendHashs,
+            @Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
+            @Qualifier("remoteHashs") ConcurrentHashMap<String, Map> remoteHashs,
+            @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, Map> aboutToSendHashs,
             CompareService compareService) {
         this.remoteBinRecords = remoteBinRecords;
         this.localBinRecords = localBinRecords;
@@ -93,7 +94,7 @@ public class MqService {
         if (isServer) {
             System.out.println("Running as WebSocket Server for Record");
         } else {
-            
+
             System.out.println("Running as WebSocket Client for Record");
         }
         // dbName = compareService.getDatabaseNameFromUrl(url);
@@ -120,8 +121,8 @@ public class MqService {
         if (!isServer) {
             provider = ClientServiceProvider.loadService();
             clientConfiguration = ClientConfiguration.newBuilder()
-            .setEndpoints(proxyServerAddress)
-            .build();
+                    .setEndpoints(proxyServerAddress)
+                    .build();
             // 初始化 PushConsumer
             String topic = recordTopic;
             String dbName = compareService.getDatabaseNameFromUrl(url);
@@ -152,8 +153,8 @@ public class MqService {
         if (!isServer) {
             provider = ClientServiceProvider.loadService();
             clientConfiguration = ClientConfiguration.newBuilder()
-            .setEndpoints(proxyServerAddress)
-            .build();
+                    .setEndpoints(proxyServerAddress)
+                    .build();
 
             // 初始化 PushConsumer
             String topic = hashTopic;
@@ -239,7 +240,7 @@ public class MqService {
                     output.flush();
 
                     byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
-                   
+
                     Message message = provider.newMessageBuilder()
                             .setTopic(hashTopic)
                             .setTag(dbAndTable)
@@ -249,12 +250,12 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() 
-                        + " topic = " + hashTopic 
-                        + " tag=" + dbAndTable);
+                        LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId()
+                                + " topic = " + hashTopic
+                                + " tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
-                        
+
                     } catch (ClientException e) {
                         LOG.error("Failed to send message", e);
                     }
@@ -262,7 +263,6 @@ public class MqService {
             }
         }
     }
-
 
     private void processRecordMessage(MessageView messageView) {
         String dbAndTable = messageView.getTag().orElse(null);
@@ -301,7 +301,6 @@ public class MqService {
         }
     }
 
-
     /*
      * 处理 hash 消息
      * 将远端的hash存储到本地，用以后续的对比。
@@ -331,7 +330,7 @@ public class MqService {
             return;
         }
         compareService.addToRemoteHashs(dbAndTable, record.getTimestamp(), record.getHash());
-        LOG.info( "Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
+        LOG.info("Store remote hash successfully, dbAndTable=" + dbAndTable + "hash=" + record);
     }
 
     public void printLocalBinRecords() {
