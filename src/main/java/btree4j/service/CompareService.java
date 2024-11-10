@@ -40,6 +40,7 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
     private boolean isServer;
 
+    public String newestHashAfterRemove;   // 删除key之后的最新hash 之所以要记录这个是因为删除不存在key之后 root hash可能不变化
     private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
     private ConcurrentHashMap<String, Map> aboutToSendHashs;
@@ -121,8 +122,9 @@ public class CompareService {
     public String removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
-        btree.removeValue(k, time);
-        String newestHash = btree.getRootMerkleHash();
+        btree.removeValue(k, time); //这个found没用        
+        String newestHash = btree.getRootMerkleHash();        
+        this.newestHashAfterRemove = newestHash;
         System.out.println("Success remove key:" + value + ",newest root hash is : " + newestHash);
         return newestHash;
     }
@@ -213,6 +215,12 @@ public class CompareService {
         if (isConcist) {
             remoteHashsMap.removeKeysLessThan(remoteHashsMap.getKeyFromValue(newestConcistHash));
             localHashsMap.removeKeysLessThan(localHashsMap.getKeyFromValue(newestConcistHash));
+            if (isConcist) {
+                remoteHashsMap.removeKeysLessThan(remoteHashsMap.getKeyFromValue(newestConcistHash));
+                localHashsMap.removeKeysLessThan(localHashsMap.getKeyFromValue(newestConcistHash));
+                remoteHashsMap.remove(remoteHashsMap.getKeyFromValue(newestConcistHash));
+                localHashsMap.remove(localHashsMap.getKeyFromValue(newestConcistHash));
+            }
         }
 
         isConcistByMerkleHash.put(dbAndTable, isConcist);

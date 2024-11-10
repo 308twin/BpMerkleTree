@@ -1,3 +1,12 @@
+/*
+ * @Author: LHD
+ * @Date: 2024-11-10 17:37:27
+ * @LastEditors: 308twin 790816436@qq.com
+ * @LastEditTime: 2024-11-10 19:38:25
+ * @Description: 
+ * 
+ * Copyright (c) 2024 by 308twin@790816436@qq.com, All Rights Reserved. 
+ */
 package btree4j.entity;
 
 import java.util.Comparator;
@@ -5,6 +14,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
+/*
+ * 正常情况下这个数据结构没有问题
+ * 但是如果重复删除不存在的key（即测试删除不存在与bp树中的数据）
+ * 每次生成的root值是一样的，这样会导致bp树的root值不变
+ * 对于主结构Time-Key来说，是可以重复插入的
+ * 但是对于辅助结构Key-Time来说，其Key（即重复生成的root）是不可重复的
+ * 所以就会导致插入/删除的时候出现问题
+ */
 public class LimitedSizeConcurrentSkipListMapDescending extends ConcurrentSkipListMap<Long, String> {
     private final int maxSize;
     private final ConcurrentHashMap<String, Long> valueMap = new ConcurrentHashMap<>();

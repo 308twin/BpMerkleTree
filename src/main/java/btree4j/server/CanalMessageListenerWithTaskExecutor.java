@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 import btree4j.utils.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 @Component
 public class CanalMessageListenerWithTaskExecutor {
 
@@ -49,7 +50,6 @@ public class CanalMessageListenerWithTaskExecutor {
     private CompareService compareService;
 
     private static final Log LOG = LogFactory.getLog(CanalMessageListenerWithTaskExecutor.class);
-
 
     public CanalMessageListenerWithTaskExecutor(Executor canalTaskExecutor, CompareService compareService) {
         this.canalTaskExecutor = canalTaskExecutor;
@@ -162,7 +162,8 @@ public class CanalMessageListenerWithTaskExecutor {
                     // 由于删除操作很少进行，所以直接删除
                     String newestHash = compareService.removeKeyFromBtree(dbName + "__" + tableName, primaryKey,
                             Utils.convertStringToLong(update_time_on_chain));
-                    compareService.insertHashToLocalHashs(dbName+"__"+tableName, newestHash);
+                    if (!newestHash.equals(compareService.newestHashAfterRemove))   // 如果删除后的hash和删除前的hash不一样,则更新。否则会导致错误
+                        compareService.insertHashToLocalHashs(dbName + "__" + tableName, newestHash);
 
                 } else if (rowChange.getEventType() == CanalEntry.EventType.CREATE) {
                     // CREATE事件只需表名
