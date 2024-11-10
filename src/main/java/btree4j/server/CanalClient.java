@@ -79,8 +79,8 @@ public class CanalClient implements InitializingBean {
             }
             //获取操作类型：insert/update/delete类型
             EventType eventType = rowChage.getEventType();
-            //打印Header信息
-            //System.out.println(String.format("================》; binlog[%s:%s] , name[%s,%s] , eventType : %s",
+            //打印Header信息            
+            System.out.println(String.format("================》; binlog[%s:%s] , name[%s,%s] , eventType : %s",
                     entry.getHeader().getLogfileName(), entry.getHeader().getLogfileOffset(),
                     entry.getHeader().getSchemaName(), entry.getHeader().getTableName(),
                     eventType));
@@ -111,7 +111,7 @@ public class CanalClient implements InitializingBean {
 
     private static void printColumn(List<Column> columns) {
         for (Column column : columns) {
-            //System.out.println(column.getName() + " : " + column.getValue() + "    update=" + column.getUpdated());
+            System.out.println(column.getName() + " : " + column.getValue() + "    update=" + column.getUpdated());
         }
     }
 }

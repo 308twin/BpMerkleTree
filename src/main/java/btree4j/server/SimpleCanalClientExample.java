@@ -71,7 +71,7 @@ public class SimpleCanalClientExample {
             }
 
             EventType eventType = rowChage.getEventType();
-            //System.out.println(String.format("================&gt; binlog[%s:%s] , name[%s,%s] , eventType : %s",
+            System.out.println(String.format("================&gt; binlog[%s:%s] , name[%s,%s] , eventType : %s",
                     entry.getHeader().getLogfileName(), entry.getHeader().getLogfileOffset(),
                     entry.getHeader().getSchemaName(), entry.getHeader().getTableName(),
                     eventType));
