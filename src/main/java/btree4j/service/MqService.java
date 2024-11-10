@@ -289,16 +289,19 @@ public class MqService {
 
         System.out.println("Consume record message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
-        if (localBinRecords.containsKey(dbAndTable)
-                && localBinRecords.get(dbAndTable).containsKey(key)
-                && localBinRecords.get(dbAndTable).get(key).getType() == binRecord.getType()) {
-            localBinRecords.get(dbAndTable).remove(key);
-            LOG.debug("Remove local record successfully, key=" + key);
-        } else {
-            compareService.addToRemoteBinRecords(dbName, tableName, key,
+        // if (localBinRecords.containsKey(dbAndTable)
+        //         && localBinRecords.get(dbAndTable).containsKey(key)
+        //         && localBinRecords.get(dbAndTable).get(key).getType() == binRecord.getType()) {
+        //     localBinRecords.get(dbAndTable).remove(key);
+        //     LOG.debug("Remove local record successfully, key=" + key);
+        // } else {
+        //     compareService.addToRemoteBinRecords(dbName, tableName, key,
+        //             new TypeWithTime(binRecord.getTime(), binRecord.getType()));
+        //     LOG.debug("Local record did not exist, key=" + key);
+        // }
+        compareService.addToRemoteBinRecords(dbName, tableName, key,
                     new TypeWithTime(binRecord.getTime(), binRecord.getType()));
             LOG.debug("Local record did not exist, key=" + key);
-        }
     }
 
     /*

@@ -282,7 +282,7 @@ public class CompareService {
             for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
                 String key = entry.getKey();
                 TypeWithTime value = entry.getValue();
-                if (remoteRecords.containsKey(key) && remoteRecords.get(key).equals(value)) {
+                if (remoteRecords.containsKey(key) && remoteRecords.get(key).getType().equals(value.getType())) {   // 操作的key相通，操作类型也相同
                     localRecords.remove(key);
                     remoteRecords.remove(key);
                 }
