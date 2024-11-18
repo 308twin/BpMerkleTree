@@ -2,6 +2,8 @@ package btree4j.service;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -21,13 +23,17 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import com.google.common.cache.CacheBuilder;
-import com.esotericsoftware.minlog.Log;
+//import com.esotericsoftware.minlog.Log;
 import com.google.common.cache.Cache;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 @Service
 @ConfigurationProperties(prefix = "my.custom.config")
 public class CompareService {
+    private static final Log LOG = LogFactory.getLog(CompareService.class);
+
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.timeFram}")
     private String timeFram;
 
@@ -43,7 +49,7 @@ public class CompareService {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.strictMode}")
     private boolean strictMode;
 
-    public String newestHashAfterRemove;   // 删除key之后的最新hash 之所以要记录这个是因为删除不存在key之后 root hash可能不变化
+    public String newestHashAfterRemove; // 删除key之后的最新hash 之所以要记录这个是因为删除不存在key之后 root hash可能不变化
     private ConcurrentHashMap<String, Map> localHashs;
     private ConcurrentHashMap<String, Map> remoteHashs;
     private ConcurrentHashMap<String, Map> aboutToSendHashs;
@@ -96,7 +102,7 @@ public class CompareService {
      * 将最新生成的hash插入到localHashs中，如果localHashs中没有dbAndTable对应的hash列表，则创建一个新的hash列表
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
-        //System.out.println("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
+        LOG.debug("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
         Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
                 k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
 
@@ -125,8 +131,8 @@ public class CompareService {
     public String removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
-        btree.removeValue(k, time); //这个found没用        
-        String newestHash = btree.getRootMerkleHash();        
+        btree.removeValue(k, time); // 这个found没用
+        String newestHash = btree.getRootMerkleHash();
         this.newestHashAfterRemove = newestHash;
         System.out.println("Success remove key:" + value + ",newest root hash is : " + newestHash);
         return newestHash;
@@ -174,23 +180,23 @@ public class CompareService {
                 .get(dbAndTable);
         if ((localHashsMap == null || localHashsMap.size() == 0)
                 && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
-            //System.out.println("localHashsMap is null and remoteHashsMap is null");
+            // System.out.println("localHashsMap is null and remoteHashsMap is null");
             isConcistByMerkleHash.put(dbAndTable, true);
             return;
         }
         if (localHashsMap.size() != 0
                 && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
-            //System.out.println("localHashsMap is not null and remoteHashsMap is null");
+            // System.out.println("localHashsMap is not null and remoteHashsMap is null");
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
         }
 
         if ((localHashsMap == null || localHashsMap.size() == 0)
                 && remoteHashsMap.size() != 0) {
-            //System.out.println("localHashsMap is null and remoteHashsMap is not null");
+            // System.out.println("localHashsMap is null and remoteHashsMap is not null");
             // print remote
             for (Map.Entry<Long, String> entry : remoteHashsMap.entrySet()) {
-                //System.out.println("time:" + entry.getKey() + ",hash:" + entry.getValue());
+                // System.out.println("time:" + entry.getKey() + ",hash:" + entry.getValue());
             }
             isConcistByMerkleHash.put(dbAndTable, false);
             return;
@@ -293,7 +299,7 @@ public class CompareService {
             for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
                 String key = entry.getKey();
                 TypeWithTime value = entry.getValue();
-                if (remoteRecords.containsKey(key) && remoteRecords.get(key).getType().equals(value.getType())) {   // 操作的key相通，操作类型也相同
+                if (remoteRecords.containsKey(key) && remoteRecords.get(key).getType().equals(value.getType())) { // 操作的key相通，操作类型也相同
                     localRecords.remove(key);
                     remoteRecords.remove(key);
                 }
@@ -301,13 +307,13 @@ public class CompareService {
         }
 
         // 打印localRecords和remoteRecords
-        //System.out.println("localRecords:");
+        // System.out.println("localRecords:");
         for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
-            //System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+            // System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
-        //System.out.println("remoteRecords:");
+        // System.out.println("remoteRecords:");
         for (Map.Entry<String, TypeWithTime> entry : remoteRecords.entrySet()) {
-            //System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+            // System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
 
         Long remoteOldestTime = remoteRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo)
@@ -325,17 +331,17 @@ public class CompareService {
 
     public void printAllConsistByRecord() {
         if (!isServer)
-            //System.out.println("isConcistByRecord:");
+            LOG.debug("isConcistByRecord:");
         for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()) {
-            //System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
+            LOG.debug("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
         }
     }
 
     public void printAllConsistByMerkleHash() {
         if (!isServer) {
-            //System.out.println("isConcistByMerkleHash:");
+            LOG.debug("isConcistByMerkleHash:");
             for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()) {
-                //System.out.println("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
+                LOG.debug("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
             }
         }
 
@@ -407,17 +413,17 @@ public class CompareService {
         return urlWithoutParams.substring(urlWithoutParams.lastIndexOf("/") + 1);
     }
 
-    public Object getCompareResult(String channelType,String channelName){
+    public Object getCompareResult(String channelType, String channelName) {
         String dbName = this.getDatabaseNameFromUrl(url);
-        Boolean resultByMerkleHash = isConcistByMerkleHash.get(dbName + "__" +channelType+"_"+ channelName);
-        Boolean resultByRecord = isConcistByRecord.get(dbName + "__" +channelType+"_"+ channelName);
-        if(resultByMerkleHash == null || resultByRecord == null)
+        Boolean resultByMerkleHash = isConcistByMerkleHash.get(dbName + "__" + channelType + "_" + channelName);
+        Boolean resultByRecord = isConcistByRecord.get(dbName + "__" + channelType + "_" + channelName);
+        if (resultByMerkleHash == null || resultByRecord == null)
             return "指定的通道还未存在一致性对比结果";
-        if(strictMode)
+        if (strictMode)
             return resultByMerkleHash && resultByRecord;
         else
             return resultByMerkleHash || resultByRecord;
-        
+
     }
 
 }

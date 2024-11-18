@@ -24,51 +24,14 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 	<groupId>io.github.myui</groupId>
-	<artifactId>btree4j</artifactId>
-	<version>0.9.1</version>
+	<artifactId>consistencycheck</artifactId> 
+	<version>1.0.0</version>
 
 	<packaging>jar</packaging>
 
-	<name>btree4j</name>
-	<description>A efficient B+-tree implementation written in pure Java</description>
-	<url>https://github.com/myui/btree4j</url>
-	<organization>
-		<name>Makoto Yui</name>
-		<url>https://github.com/myui/btree4j/</url>
-	</organization>
-
-	<licenses>
-		<license>
-			<name>Apache License, Version 2.0</name>
-			<url>http://opensource.org/licenses/Apache-2.0</url>
-			<distribution>repo</distribution>
-		</license>
-	</licenses>
-
-	<inceptionYear>2006</inceptionYear>
-	<issueManagement>
-		<url>https://github.com/myui/btree4j/issues</url>
-		<system>Github Issues</system>
-	</issueManagement>
-	<ciManagement>
-		<system>Travis CI</system>
-		<url>https://travis-ci.org/myui/btree4j</url>
-	</ciManagement>
-
-	<scm>
-		<url>https://github.com/myui/btree4j</url>
-		<connection>scm:git:git@github.com:myui/btree4j.git</connection>
-		<developerConnection>scm:git:git@github.com:myui/btree4j.git</developerConnection>
-	</scm>
-
-	<developers>
-		<developer>
-			<id>myui</id>
-			<name>Makoto YUI</name>
-			<email>myui@apache.org</email>
-			<url>http://myui.github.io/</url>
-		</developer>
-	</developers>
+	<name>consistencycheck</name>
+	<description>For concistency check</description>
+	
 
 	<properties>
 		<main.basedir>${project.basedir}</main.basedir>

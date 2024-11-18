@@ -26,7 +26,7 @@ public class CanalClient implements InitializingBean {
         try {
             //打开连接
             connector.connect();
-            //System.out.println("CanalClient start");
+            System.out.println("CanalClient start");
             //订阅数据库表,全部表
             connector.subscribe(".*\\..*");
             //回滚到未进行ack的地方，下次fetch的时候，可以从最后一个没有ack的地方开始拿

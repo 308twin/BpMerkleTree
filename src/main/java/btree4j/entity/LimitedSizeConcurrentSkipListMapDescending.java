@@ -40,6 +40,9 @@ public class LimitedSizeConcurrentSkipListMapDescending extends ConcurrentSkipLi
 
     @Override
     public String put(Long key, String value) {
+        if(this.containsKey(value))
+            return null;
+            
         String previousValue = super.put(key, value);
         if (previousValue != null) {
             // 更新 valueMap 中的值

@@ -92,10 +92,10 @@ public class MqService {
     @PostConstruct
     public void init() {
         if (isServer) {
-            //System.out.println("Running as WebSocket Server for Record");
+            System.out.println("Running as WebSocket Server for Record");
         } else {
 
-            //System.out.println("Running as WebSocket Client for Record");
+            System.out.println("Running as WebSocket Client for Record");
         }
         // dbName = compareService.getDatabaseNameFromUrl(url);
     }
@@ -287,7 +287,7 @@ public class MqService {
             return;
         }
 
-        //System.out.println("Consume record message successfully, messageId=" + messageView.getMessageId());
+        LOG.debug("Consume record message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
         // if (localBinRecords.containsKey(dbAndTable)
         //         && localBinRecords.get(dbAndTable).containsKey(key)
@@ -310,7 +310,7 @@ public class MqService {
      * 这里存储使用的是一个先进先出的跳表，大小可以自定义。
      */
     public void processHashMessage(MessageView messageView) {
-        //System.out.println("Consume message successfully, messageId=" + messageView.getMessageId());
+        LOG.debug("Consume message successfully, messageId=" + messageView.getMessageId());
         String dbAndTable = messageView.getTag().orElse(null);
         // dbname__tablename
         String dbName = dbAndTable.split("__")[0];
@@ -351,7 +351,7 @@ public class MqService {
 
     // 打印本地binlog记录中距离当前时间时间大于5s的记录
     public void printLocalBinRecordsWhereTimeRangeBiggerThan5s() {
-        //System.out.println("printLocalBinRecordsWhereTimeRangeBiggerThan5s:");
+        LOG.debug("printLocalBinRecordsWhereTimeRangeBiggerThan5s:");
         for (Map.Entry<String, ConcurrentHashMap<String, TypeWithTime>> entry : localBinRecords.entrySet()) {
             String dbAndTable = entry.getKey();
             ConcurrentHashMap<String, TypeWithTime> records = entry.getValue();
