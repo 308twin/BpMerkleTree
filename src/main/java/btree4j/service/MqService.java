@@ -207,7 +207,7 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.debug("Send message successfully, messageId=" + sendReceipt.getMessageId() +
+                        LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() +
                                 " tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
@@ -250,9 +250,10 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.debug("Send message successfully, messageId=" + sendReceipt.getMessageId()
+                        LOG.info("Send local hash successfully, messageId=" + sendReceipt.getMessageId()
                                 + " topic = " + hashTopic
-                                + " tag=" + dbAndTable);
+                                + " tag=" + dbAndTable
+                                + " hash=" + value);
                         // 发送成功后删除
                         records.remove(key);
 

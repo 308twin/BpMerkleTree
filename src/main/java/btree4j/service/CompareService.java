@@ -341,7 +341,7 @@ public class CompareService {
         if (!isServer) {
             LOG.debug("isConcistByMerkleHash:");
             for (Map.Entry<String, Boolean> entry : isConcistByMerkleHash.entrySet()) {
-                LOG.debug("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
+                LOG.info("dbAndTable:" + entry.getKey() + ",isConsistByMerkleHash:" + entry.getValue());
             }
         }
 
