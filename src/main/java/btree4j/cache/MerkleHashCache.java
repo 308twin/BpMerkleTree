@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import btree4j.BTree;
+import btree4j.entity.ConcurrentLimitedSortedStore;
 import btree4j.entity.MerkleHashEntity;
 import btree4j.entity.TypeWithTime;
 
@@ -22,12 +23,12 @@ public class MerkleHashCache {
     // value : merkleHash
     // 存储本地生成的历史merkleHash
     @Bean("localHashs")
-    public ConcurrentHashMap<String,Map> localHashs() {
+    public ConcurrentHashMap<String,ConcurrentLimitedSortedStore> localHashs() {
         return new ConcurrentHashMap<>();
     }
 
     @Bean("aboutToSendHashs")
-    public ConcurrentHashMap<String,Map> aboutToSendHashs() {
+    public ConcurrentHashMap<String,ConcurrentLimitedSortedStore> aboutToSendHashs() {
         return new ConcurrentHashMap<>();
     }
 
@@ -35,7 +36,7 @@ public class MerkleHashCache {
     // value : merkleHash
     // 存储远程生成的历史merkleHash
     @Bean("remoteHashs")
-    public ConcurrentHashMap<String,Map> remoteHashs() {
+    public ConcurrentHashMap<String,ConcurrentLimitedSortedStore> remoteHashs() {
         return new ConcurrentHashMap<>();
     }
 
@@ -81,7 +82,7 @@ public class MerkleHashCache {
 
     //schedule来处理
     @Bean("aboutToInsertRecord")
-    public ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord(){
+    public ConcurrentHashMap<String,ConcurrentLimitedSortedStore> aboutToInsertRecord(){
         return new ConcurrentHashMap<>();
     }
 

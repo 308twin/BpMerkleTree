@@ -8,6 +8,7 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import btree4j.entity.ConcurrentLimitedSortedStore;
 import btree4j.service.CompareService;
 import btree4j.service.MqService;
 
@@ -19,11 +20,11 @@ public class BPMerkleTreeSchedule {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
     private boolean isServer;
 
-    private ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord;
+    private ConcurrentHashMap<String,ConcurrentLimitedSortedStore> aboutToInsertRecord;
     private CompareService compareService;
     private MqService   mqService;
 
-    public BPMerkleTreeSchedule(ConcurrentHashMap<String,Map<Long,String>> aboutToInsertRecord, 
+    public BPMerkleTreeSchedule(ConcurrentHashMap<String,ConcurrentLimitedSortedStore> aboutToInsertRecord, 
     CompareService compareService,
     MqService MqService) {
         this.aboutToInsertRecord = aboutToInsertRecord;
@@ -33,16 +34,18 @@ public class BPMerkleTreeSchedule {
 
     @Scheduled(fixedRate = 10000)
     public void buildTree(){
-        for (Map.Entry<String,Map<Long,String>> entry : aboutToInsertRecord.entrySet()){
+        // 遍历aboutToInsertRecord，将其中的key插入到btree中
+        for (Map.Entry<String,ConcurrentLimitedSortedStore> entry : aboutToInsertRecord.entrySet()){
             String dbAndTable = entry.getKey();
-            Map<Long,String> value = entry.getValue();
-            for (Map.Entry<Long,String> entry1 : value.entrySet()){
+            ConcurrentLimitedSortedStore value = entry.getValue();
+            for (Map.Entry<String,Long> entry1 : value.entrySet()){
                 try {
-                    compareService.insertKeyToBtree(dbAndTable,entry1.getValue(),entry1.getKey());
+                    System.out.println("insert key to btree:"+entry1.getKey());
+                    compareService.insertKeyToBtree(dbAndTable,entry1.getKey(),entry1.getValue());
                     value.remove(entry1.getKey());
                     String newestHash = compareService.getBTreeRootMerkleHash(dbAndTable);
                     compareService.insertHashToLocalHashs(dbAndTable, newestHash);
-                    ////System.out.println("insert key to btree success,newest btree root hash:"+newestHash);
+                    //System.out.println("insert key to btree success,newest btree root hash:"+newestHash);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

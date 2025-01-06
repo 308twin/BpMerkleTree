@@ -76,7 +76,7 @@ public class CanalMessageListenerWithTaskExecutor {
             connector.rollback(); // 回滚到上一次未处理的位置
 
             while (running) {
-                // 获取消息，批量获取100条
+                // 获取消息，批量获取1000条
                 Message message = connector.getWithoutAck(1000, 100L, java.util.concurrent.TimeUnit.MILLISECONDS);
                 long batchId = message.getId();
                 int size = message.getEntries().size();
@@ -132,7 +132,7 @@ public class CanalMessageListenerWithTaskExecutor {
                     // 输出数据库名、表名、主键字段、插入时间
                     LOG.debug("数据库名: " + dbName);
                     LOG.debug("表名: " + tableName);
-                    LOG.debug("主键字段: " + primaryKey);
+                    LOG.info("主键字段: " + primaryKey);
                     LOG.debug("区块链上修改时间: " + update_time_on_chain);
                     compareService.addToLocalBinRecords(dbName, tableName, primaryKey, new TypeWithTime(
                             Utils.convertStringToLong(update_time_on_chain), TypeWithTime.OperationType.INSERT));
@@ -155,7 +155,7 @@ public class CanalMessageListenerWithTaskExecutor {
                     // 输出数据库名、表名、主键字段、删除时间
                     LOG.debug("数据库名: " + dbName);
                     LOG.debug("表名: " + tableName);
-                    LOG.debug("主键字段: " + primaryKey);
+                    LOG.info("主键字段: " + primaryKey);
                     LOG.debug("删除时间: " + String.valueOf(deleteTime));
                     compareService.addToLocalBinRecords(dbName, tableName, primaryKey,
                             new TypeWithTime(deleteTime, TypeWithTime.OperationType.DELETE));

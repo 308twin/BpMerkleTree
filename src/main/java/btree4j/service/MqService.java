@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import btree4j.entity.BinRecord;
+import btree4j.entity.ConcurrentLimitedSortedStore;
 import btree4j.entity.HashWithTimestamp;
 import btree4j.entity.TypeWithTime;
 
@@ -70,16 +71,16 @@ public class MqService {
 
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
-    private ConcurrentHashMap<String, Map> localHashs;
-    private ConcurrentHashMap<String, Map> aboutToSendHashs;
-    private ConcurrentHashMap<String, Map> remoteHashs;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> localHashs;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs;
     private CompareService compareService;
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
-            @Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
-            @Qualifier("remoteHashs") ConcurrentHashMap<String, Map> remoteHashs,
-            @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, Map> aboutToSendHashs,
+            @Qualifier("localHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> localHashs,
+            @Qualifier("remoteHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs,
+            @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs,
             CompareService compareService) {
         this.remoteBinRecords = remoteBinRecords;
         this.localBinRecords = localBinRecords;
@@ -207,8 +208,7 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() +
-                                " tag=" + dbAndTable);
+                        //LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() + " tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                     } catch (ClientException e) {
@@ -223,19 +223,19 @@ public class MqService {
     public void sendLocalHashsToRemote() {
         if (isServer) {
             // 遍历localHashRecords，构建消息，发送到proxyServer,发送后删除
-            for (Map.Entry<String, Map> entry : aboutToSendHashs.entrySet()) {
+            for (Map.Entry<String, ConcurrentLimitedSortedStore> entry : aboutToSendHashs.entrySet()) {
                 String dbAndTable = entry.getKey();
-                Map<Long, String> records = entry.getValue();
+                ConcurrentLimitedSortedStore records = entry.getValue();
                 Kryo kryo = kryoThreadLocal.get();
                 ByteArrayOutputStream byteOut = new ByteArrayOutputStream(); // 重用字节输出流
                 Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
-                for (Map.Entry<Long, String> record : records.entrySet()) {
-                    Long key = record.getKey();
-                    String value = record.getValue();
+                for (Map.Entry<String, Long> record : records.entrySet()) {
+                    String key = record.getKey();
+                    Long value = record.getValue();
                     byteOut.reset();
 
                     // 写入record
-                    HashWithTimestamp hashWithTimestamp = new HashWithTimestamp(value, key);
+                    HashWithTimestamp hashWithTimestamp = new HashWithTimestamp(key, value);
                     kryo.writeObject(output, hashWithTimestamp);
                     output.flush();
 
@@ -250,7 +250,7 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.info("Send local hash successfully, messageId=" + sendReceipt.getMessageId()
+                        LOG.debug("Send local hash successfully, messageId=" + sendReceipt.getMessageId()
                                 + " topic = " + hashTopic
                                 + " tag=" + dbAndTable
                                 + " hash=" + value);
@@ -290,16 +290,6 @@ public class MqService {
 
         LOG.debug("Consume record message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
-        // if (localBinRecords.containsKey(dbAndTable)
-        //         && localBinRecords.get(dbAndTable).containsKey(key)
-        //         && localBinRecords.get(dbAndTable).get(key).getType() == binRecord.getType()) {
-        //     localBinRecords.get(dbAndTable).remove(key);
-        //     LOG.debug("Remove local record successfully, key=" + key);
-        // } else {
-        //     compareService.addToRemoteBinRecords(dbName, tableName, key,
-        //             new TypeWithTime(binRecord.getTime(), binRecord.getType()));
-        //     LOG.debug("Local record did not exist, key=" + key);
-        // }
         compareService.addToRemoteBinRecords(dbName, tableName, key,
                     new TypeWithTime(binRecord.getTime(), binRecord.getType()));
             LOG.debug("Local record did not exist, key=" + key);

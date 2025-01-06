@@ -14,6 +14,7 @@ import btree4j.BTreeException;
 import btree4j.Value;
 import btree4j.entity.LimitedLinkedHashSet;
 import btree4j.entity.LimitedSizeConcurrentSkipListMapDescending;
+import btree4j.entity.ConcurrentLimitedSortedStore;
 import btree4j.entity.LimitedLinkedHashSet;
 import btree4j.entity.MerkleHashEntity;
 import btree4j.entity.TypeWithTime;
@@ -50,12 +51,12 @@ public class CompareService {
     private boolean strictMode;
 
     public String newestHashAfterRemove; // 删除key之后的最新hash 之所以要记录这个是因为删除不存在key之后 root hash可能不变化
-    private ConcurrentHashMap<String, Map> localHashs;
-    private ConcurrentHashMap<String, Map> remoteHashs;
-    private ConcurrentHashMap<String, Map> aboutToSendHashs;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> localHashs;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs;
     private ConcurrentHashMap<String, Boolean> isConcistByMerkleHash;
     private ConcurrentHashMap<String, BTree> localBTrees;
-    private ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord;
+    private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToInsertRecord;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords;
     private ConcurrentHashMap<String, Boolean> isConcistByRecord;
@@ -64,11 +65,11 @@ public class CompareService {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, Map> localHashs,
-            @Qualifier("remoteHashs") ConcurrentHashMap<String, Map> remoteHashs,
-            @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, Map> aboutToSendHashs,
+    public CompareService(@Qualifier("localHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> localHashs,
+            @Qualifier("remoteHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs,
+            @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs,
             ConcurrentHashMap<String, BTree> localBTrees,
-            ConcurrentHashMap<String, Map<Long, String>> aboutToInsertRecord,
+            ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToInsertRecord,
             ConcurrentHashMap<String, Boolean> isConcistByMerkleHash,
             @Qualifier("remoteBinRecords") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             @Qualifier("localBinRecords") ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
@@ -103,32 +104,25 @@ public class CompareService {
      */
     public void insertHashToLocalHashs(String dbAndTable, String hash) {
         LOG.debug("insertHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
-        Map<Long, String> tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
-                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
+        ConcurrentLimitedSortedStore tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
+                k -> new ConcurrentLimitedSortedStore(localHashMapMaxSize));
 
-        Map<Long, String> aboutToSendHistorys = aboutToSendHashs.computeIfAbsent(dbAndTable,
-                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
+        ConcurrentLimitedSortedStore aboutToSendHistorys = aboutToSendHashs.computeIfAbsent(dbAndTable,
+                k -> new ConcurrentLimitedSortedStore(localHashMapMaxSize));
 
-        // Map<Long, String> tableHashHistorys = localHashs.get(dbAndTable);
-        // if (tableHashHistorys == null) {
-        // tableHashHistorys = new
-        // LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize);
-        // localHashs.put(dbAndTable, tableHashHistorys);
-        // }
-        // current time to long
         long time = System.currentTimeMillis();
-        tableHashHistorys.put(time, hash);
-        aboutToSendHistorys.put(time, hash);
+        tableHashHistorys.put(hash, time);
+        aboutToSendHistorys.put(hash, time);
     }
 
-    public void insertKeyToBtree(String dbAndTable, String value, long time) throws BTreeException {
+    public synchronized void insertKeyToBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.addValue(k, time);
         System.out.println("Success insert key:" + value + ",newest root hash is : " + btree.getRootMerkleHash());
     }
 
-    public String removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
+    public synchronized String removeKeyFromBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);
         btree.removeValue(k, time); // 这个found没用
@@ -144,27 +138,18 @@ public class CompareService {
     }
 
     // 将记录插入到待插入列表，使用concurrentSkipListMap存储,排序方式是按照时间戳排序
-    public void addRecordToInsertRecord(String dbAndTable, long time, String value) {
-        Map<Long, String> valueMap = aboutToInsertRecord.computeIfAbsent(
+    public synchronized void addRecordToInsertRecord(String dbAndTable, long time, String value) {
+        ConcurrentLimitedSortedStore valueMap = aboutToInsertRecord.computeIfAbsent(
                 dbAndTable,
-                k -> new ConcurrentSkipListMap<>(Comparator.comparingLong(Long::longValue)));
-        // if (valueMap == null) {
-        // valueMap = new ConcurrentSkipListMap<>(new Comparator<Long>() {
-        // @Override
-        // public int compare(Long o1, Long o2) {
-        // return Long.compare(o1, o2); // 使用 Long.compare 进行比较，时间戳小的在前
-        // }
-        // });
-        // aboutToInsertRecord.put(dbAndTable, valueMap);
-        // }
-        valueMap.put(time, value);
+                k -> new ConcurrentLimitedSortedStore(Integer.MAX_VALUE));
+        valueMap.put(value, time);
     }
 
     public void addToRemoteHashs(String dbAndTable, long time, String hash) {
-        Map<Long, String> remoteHashsSet = remoteHashs.computeIfAbsent(
+        ConcurrentLimitedSortedStore remoteHashsSet = remoteHashs.computeIfAbsent(
                 dbAndTable,
-                k -> new LimitedSizeConcurrentSkipListMapDescending(localHashMapMaxSize));
-        remoteHashsSet.put(time, hash);
+                k -> new ConcurrentLimitedSortedStore(localHashMapMaxSize));
+        remoteHashsSet.put(hash, time);
     }
 
     // 通过remoteHashs中的hash和localHashs中的hash进行比较，如果不一致则返回false
@@ -174,9 +159,9 @@ public class CompareService {
     // 如果remoteHashs中的hash和localHashs中的hash都为空，则不修改isConcistByMerkleHash对应的值
     // 最后，把localHashs和remoteHashs中的数据清空
     public void isConcistByMerkleHash(String dbAndTable) {
-        LimitedSizeConcurrentSkipListMapDescending localHashsMap = (LimitedSizeConcurrentSkipListMapDescending) localHashs
+        ConcurrentLimitedSortedStore localHashsMap = localHashs
                 .get(dbAndTable);
-        LimitedSizeConcurrentSkipListMapDescending remoteHashsMap = (LimitedSizeConcurrentSkipListMapDescending) remoteHashs
+        ConcurrentLimitedSortedStore remoteHashsMap = remoteHashs
                 .get(dbAndTable);
         if ((localHashsMap == null || localHashsMap.size() == 0)
                 && (remoteHashsMap == null || remoteHashsMap.size() == 0)) {
@@ -195,7 +180,7 @@ public class CompareService {
                 && remoteHashsMap.size() != 0) {
             // System.out.println("localHashsMap is null and remoteHashsMap is not null");
             // print remote
-            for (Map.Entry<Long, String> entry : remoteHashsMap.entrySet()) {
+            for (Map.Entry<String, Long> entry : remoteHashsMap.entrySet()) {
                 // System.out.println("time:" + entry.getKey() + ",hash:" + entry.getValue());
             }
             isConcistByMerkleHash.put(dbAndTable, false);
@@ -208,11 +193,11 @@ public class CompareService {
 
         // 从大到小遍历localHashs,如果localHashs中的hash存在于remoteHashs中，则更新isConcist为true
         if (localHashsMap != null && remoteHashsMap != null) {
-            for (Map.Entry<Long, String> entry : localHashsMap.entrySet()) {
-                Long time = entry.getKey();
-                String localHash = entry.getValue();
+            for (Map.Entry<String, Long> entry : localHashsMap.entrySet()) {
+                Long time = entry.getValue();
+                String localHash = entry.getKey();
                 // 在remoteHashs中从后往前查找localHash
-                if (remoteHashsMap.containsValue(localHash)) {
+                if (remoteHashsMap.containsKey(localHash)) {
                     isConcist = true;
                     newestConcistHash = localHash;
                     break;
@@ -222,22 +207,18 @@ public class CompareService {
         }
         // 删除localHashs和remoteHashs中的在newestConcistHash之前插入的数据
         if (isConcist) {
-            remoteHashsMap.removeKeysLessThan(remoteHashsMap.getKeyFromValue(newestConcistHash));
-            localHashsMap.removeKeysLessThan(localHashsMap.getKeyFromValue(newestConcistHash));
-            if (isConcist) {
-                remoteHashsMap.removeKeysLessThan(remoteHashsMap.getKeyFromValue(newestConcistHash));
-                localHashsMap.removeKeysLessThan(localHashsMap.getKeyFromValue(newestConcistHash));
-                remoteHashsMap.remove(remoteHashsMap.getKeyFromValue(newestConcistHash));
-                localHashsMap.remove(localHashsMap.getKeyFromValue(newestConcistHash));
-            }
-        }
+            remoteHashsMap.removeKeysLessThan(newestConcistHash);
+            localHashsMap.removeKeysLessThan(newestConcistHash);
 
+            remoteHashsMap.remove(newestConcistHash);
+            localHashsMap.remove(newestConcistHash);
+
+        }
         isConcistByMerkleHash.put(dbAndTable, isConcist);
-        // localHashs.remove(dbAndTable);
-        // remoteHashs.remove(dbAndTable);
     }
 
-    public void addToLocalBinRecords(String dbName, String tableName, String key, TypeWithTime typeWithTime) {
+    public synchronized void addToLocalBinRecords(String dbName, String tableName, String key,
+            TypeWithTime typeWithTime) {
         String dbAndTable = dbName + "__" + tableName;
         localBinRecords
                 .computeIfAbsent(dbAndTable, k -> new ConcurrentHashMap<>())
