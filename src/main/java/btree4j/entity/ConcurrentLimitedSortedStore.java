@@ -149,7 +149,7 @@ public class ConcurrentLimitedSortedStore {
             Entry entry = snapshot.get(i);
             result.add(new AbstractMap.SimpleEntry<>(entry.key, entry.value));
         }
-        System.out.println(result);
+        //System.out.println(result);
         return result;
     }
 

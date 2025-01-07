@@ -290,13 +290,13 @@ public class CompareService {
         }
 
         // 打印localRecords和remoteRecords
-        // System.out.println("localRecords:");
+        System.out.println("localRecords:");        
         for (Map.Entry<String, TypeWithTime> entry : localRecords.entrySet()) {
-            // System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+            System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
-        // System.out.println("remoteRecords:");
+        System.out.println("remoteRecords:");
         for (Map.Entry<String, TypeWithTime> entry : remoteRecords.entrySet()) {
-            // System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
+            System.out.println("key:" + entry.getKey() + ",value:" + entry.getValue());
         }
 
         Long remoteOldestTime = remoteRecords.values().stream().map(TypeWithTime::getTime).min(Long::compareTo)
