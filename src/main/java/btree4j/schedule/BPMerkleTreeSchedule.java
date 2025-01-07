@@ -34,6 +34,7 @@ public class BPMerkleTreeSchedule {
 
     @Scheduled(fixedRate = 1000)
     public void buildTree(){
+        Long curTimestamp = System.currentTimeMillis();
         // 遍历aboutToInsertRecord，将其中的key插入到btree中
         for (Map.Entry<String,ConcurrentLimitedSortedStore> entry : aboutToInsertRecord.entrySet()){
             String dbAndTable = entry.getKey();
@@ -45,6 +46,9 @@ public class BPMerkleTreeSchedule {
                     value.remove(entry1.getKey());
                     String newestHash = compareService.getBTreeRootMerkleHash(dbAndTable);
                     compareService.insertHashToLocalHashs(dbAndTable, newestHash);
+                    if(entry1.getValue() > curTimestamp - 5000){
+                        break;
+                    }
                     //System.out.println("insert key to btree success,newest btree root hash:"+newestHash);
                 } catch (Exception e) {
                     e.printStackTrace();
