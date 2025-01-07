@@ -193,8 +193,9 @@ public class CompareService {
 
         // 从大到小遍历localHashs,如果localHashs中的hash存在于remoteHashs中，则更新isConcist为true
         if (localHashsMap != null && remoteHashsMap != null) {
-            for (Map.Entry<String, Long> entry : localHashsMap.entrySet()) {
-                Long time = entry.getValue();
+            System.out.println("localHashsMap is not null and remoteHashsMap is not null");
+            for (Map.Entry<String, Long> entry : localHashsMap.reverseEntrySet()) {
+                //Long time = entry.getValue();
                 String localHash = entry.getKey();
                 // 在remoteHashs中从后往前查找localHash
                 if (remoteHashsMap.containsKey(localHash)) {
@@ -207,6 +208,7 @@ public class CompareService {
         }
         // 删除localHashs和remoteHashs中的在newestConcistHash之前插入的数据
         if (isConcist) {
+            System.out.println("delete keys less than newestConcistHash:" + newestConcistHash);
             remoteHashsMap.removeKeysLessThan(newestConcistHash);
             localHashsMap.removeKeysLessThan(newestConcistHash);
 
@@ -314,7 +316,7 @@ public class CompareService {
         if (!isServer)
             LOG.debug("isConcistByRecord:");
         for (Map.Entry<String, Boolean> entry : isConcistByRecord.entrySet()) {
-            LOG.debug("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
+            LOG.info("dbAndTable:" + entry.getKey() + ",isConsistByRecord:" + entry.getValue());
         }
     }
 

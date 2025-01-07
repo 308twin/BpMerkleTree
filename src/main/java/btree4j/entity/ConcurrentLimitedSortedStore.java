@@ -99,6 +99,8 @@ public class ConcurrentLimitedSortedStore {
         }
     }
 
+
+
     // 判断是否包含 key
     public boolean containsKey(String key) {
         return map.containsKey(key);
@@ -133,7 +135,21 @@ public class ConcurrentLimitedSortedStore {
         for (Entry entry : snapshot) {
             result.add(new AbstractMap.SimpleEntry<>(entry.key, entry.value));
         }
-        System.out.println(result);;
+        //System.out.println(result);
+        return result;
+    }
+
+    public Set<Map.Entry<String, Long>> reverseEntrySet() {
+        // 创建快照
+        List<Entry> snapshot = new ArrayList<>(sortedSet);
+
+        // 生成有序结果
+        Set<Map.Entry<String, Long>> result = new LinkedHashSet<>();
+        for (int i = snapshot.size() - 1; i >= 0; i--) {
+            Entry entry = snapshot.get(i);
+            result.add(new AbstractMap.SimpleEntry<>(entry.key, entry.value));
+        }
+        System.out.println(result);
         return result;
     }
 
@@ -149,7 +165,7 @@ public class ConcurrentLimitedSortedStore {
             Iterator<Entry> iterator = sortedSet.iterator();
             while (iterator.hasNext()) {
                 Entry entry = iterator.next();
-                if (entry.value < referenceValue) {
+                if (entry.value <= referenceValue) {
                     iterator.remove();       // 从 sortedSet 移除
                     map.remove(entry.key);   // 从 map 移除
                 }

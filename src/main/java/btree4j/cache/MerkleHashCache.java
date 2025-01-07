@@ -1,3 +1,12 @@
+/*
+ * @Author: LHD
+ * @Date: 2025-01-07 11:17:00
+ * @LastEditors: Xieemily xie.mengying@yahoo.com
+ * @LastEditTime: 2025-01-07 14:37:35
+ * @Description: 
+ * 
+ * Copyright (c) 2025 by Xieemily@xie.mengying@yahoo.com, All Rights Reserved. 
+ */
 package btree4j.cache;
 
 import org.springframework.context.annotation.Configuration;
@@ -80,7 +89,7 @@ public class MerkleHashCache {
         return new ConcurrentHashMap<>();
     }
 
-    //schedule来处理
+    //canal监听的数据库变更记录
     @Bean("aboutToInsertRecord")
     public ConcurrentHashMap<String,ConcurrentLimitedSortedStore> aboutToInsertRecord(){
         return new ConcurrentHashMap<>();

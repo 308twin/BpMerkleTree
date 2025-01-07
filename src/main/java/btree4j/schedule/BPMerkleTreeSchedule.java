@@ -32,7 +32,7 @@ public class BPMerkleTreeSchedule {
         this.mqService = MqService;
     }
 
-    @Scheduled(fixedRate = 10000)
+    @Scheduled(fixedRate = 1000)
     public void buildTree(){
         // 遍历aboutToInsertRecord，将其中的key插入到btree中
         for (Map.Entry<String,ConcurrentLimitedSortedStore> entry : aboutToInsertRecord.entrySet()){
@@ -84,7 +84,7 @@ public class BPMerkleTreeSchedule {
         
     }
 
-    //每10s打印一次merkleHash是否一致
+    //每10s打印一次merkleHash是否一致    
     @Scheduled(fixedRate = 10000)
     public void printIsConsistByMerkleHash(){
         if(!isServer){
