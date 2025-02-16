@@ -183,7 +183,7 @@ public class MqService {
 
     @PostConstruct
     public void initSignatureConsumer() throws ClientException {
-        if (!isServer) {
+        if (isServer) {
             provider = ClientServiceProvider.loadService();
             clientConfiguration = ClientConfiguration.newBuilder()
                     .setEndpoints(proxyServerAddress)
@@ -191,23 +191,20 @@ public class MqService {
 
             // 初始化 PushConsumer
             String topic = "signature";
-            String dbName = compareService.getDatabaseNameFromUrl(url);
-            List<String> tags = compareService.getAllTableNames();
-            for (int index = 0; index < tags.size(); index++) {
-                tags.set(index, dbName + "__" + tags.get(index));
-            }
-            String tagString = String.join("||", tags);
-            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+            
+            // 使用 * 作为通配符接收所有消息
+            FilterExpression filterExpression = new FilterExpression("*", FilterExpressionType.TAG);
 
             signaturePushConsumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
-                    .setConsumerGroup("signature_consumer") // 设置 Consumer Group
+                    .setConsumerGroup("signature_consumer")
                     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
                     .setMessageListener(messageView -> {
                         processSignatureMessage(messageView);
                         return ConsumeResult.SUCCESS;
                     })
                     .build();
+            LOG.info("Init signature consumer successfully with wildcard tag subscription");
         }
     }
 
@@ -255,59 +252,65 @@ public class MqService {
     public void sendSignatureToRemote(String signature, String txId, String dbAndTable)
             throws ClientException, IOException {
         if (!isServer) {
-            LOG.info("Start to send");
+            LOG.info("Start to send signature");
             // Send signature to remote
-            Map<String, String> signatureMap = new HashMap<>();
+            HashMap<String, String> signatureMap = new HashMap<>(); // 明确使用HashMap类型
             signatureMap.put("signature", signature);
             signatureMap.put("txId", txId);
             Kryo kryo = kryoThreadLocal.get();
-            ByteArrayOutputStream byteOut = new ByteArrayOutputStream(); // 重用字节输出流
-            Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
+            ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+            Output output = new Output(byteOut);
             byteOut.reset();
-            kryo.writeObject(output, signatureMap);
+            kryo.writeObject(output, signatureMap); // 序列化具体的HashMap类型
             output.flush();
-            byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
+            byte[] serializedBytes = byteOut.toByteArray();
+            
+            LOG.info("Serialized signature map: " + signatureMap); // 添加日志
+            
             Message message = provider.newMessageBuilder()
                     .setTopic("signature")
                     .setTag(dbAndTable)
                     .setBody(serializedBytes)
                     .build();
             try {
-                LOG.info("Send signature to remote, dbAndTable=" + dbAndTable + " signature=" + signature);
-                // 发送消息，需要关注发送结果，并捕获失败等异常。
                 SendReceipt sendReceipt = producer.send(message);
-                // LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId()
-                // + " tag=" + dbAndTable);
-               
+                LOG.info("Sent signature message successfully, messageId=" + sendReceipt.getMessageId());
             } catch (ClientException e) {
-                LOG.error("Failed to send message", e);
+                LOG.error("Failed to send signature message", e);
+                throw e;
             }
         }
-
     }
 
     public void processSignatureMessage(MessageView messageView) {
         if (isServer) {
-            ByteBuffer body = messageView.getBody();
-            byte[] byteArray = new byte[body.remaining()];
-            body.get(byteArray);
-    
-            // 解析消息为 Map
-            Map<String, String> signatureMap;
             try {
-                LOG.info("Consume signature message successfully, messageId=" + messageView.getMessageId());
+                LOG.info("Processing signature message, messageId=" + messageView.getMessageId());
+                ByteBuffer body = messageView.getBody();
+                byte[] byteArray = new byte[body.remaining()];
+                body.get(byteArray);
+        
                 Kryo kryo = kryoThreadLocal.get();
                 Input input = new Input(byteArray);
-                signatureMap = kryo.readObject(input, Map.class);
+                HashMap<String, String> signatureMap = kryo.readObject(input, HashMap.class); // 明确使用HashMap类型
+                
+                LOG.info("Deserialized signature map: " + signatureMap); // 添加日志
+                
                 String signature = signatureMap.get("signature");
                 String txId = signatureMap.get("txId");
                 String dbAndTable = messageView.getTag().orElse(null);
+                
+                if (signature == null || txId == null || dbAndTable == null) {
+                    LOG.error("Invalid signature message: signature=" + signature + ", txId=" + txId + ", dbAndTable=" + dbAndTable);
+                    return;
+                }
+                
                 dbService.updateSignature(signature, txId, dbAndTable);
+                LOG.info("Successfully processed signature message for dbAndTable=" + dbAndTable);
             } catch (Exception e) {
-                LOG.error("Failed to deserialize signature message");
-                return;
-            } 
-            
+                LOG.error("Failed to deserialize signature message", e);
+                e.printStackTrace(); // 打印完整堆栈跟踪
+            }
         }
     }
 
