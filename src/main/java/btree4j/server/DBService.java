@@ -103,6 +103,7 @@ public class DBService {
 
     public void updateSignature(String signature,String txId,String tableName) {
         String sql = "UPDATE " + tableName + " SET signature = '" + signature + "' WHERE tx_id = '" + txId + "'";
+        logger.info(sql);
         addSQL(sql);
     }
     // 内部类用于存储失败的SQL和重试次数
