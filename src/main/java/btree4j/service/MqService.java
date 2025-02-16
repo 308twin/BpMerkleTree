@@ -12,6 +12,7 @@ import btree4j.entity.BinRecord;
 import btree4j.entity.ConcurrentLimitedSortedStore;
 import btree4j.entity.HashWithTimestamp;
 import btree4j.entity.TypeWithTime;
+import btree4j.server.DBService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -67,6 +68,7 @@ public class MqService {
     private ClientConfiguration clientConfiguration;
     private PushConsumer recordPushConsumer;
     private PushConsumer hashPushConsumer;
+    private PushConsumer signaturePushConsumer;
     private static final ThreadLocal<Kryo> kryoThreadLocal = ThreadLocal.withInitial(Kryo::new);
 
     private ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords;
@@ -75,19 +77,22 @@ public class MqService {
     private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs;
     private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs;
     private CompareService compareService;
+    private DBService dbService;
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
             @Qualifier("localHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> localHashs,
             @Qualifier("remoteHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs,
             @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs,
-            CompareService compareService) {
+            CompareService compareService,
+            DBService dbService) {
         this.remoteBinRecords = remoteBinRecords;
         this.localBinRecords = localBinRecords;
         this.localHashs = localHashs;
         this.remoteHashs = remoteHashs;
         this.aboutToSendHashs = aboutToSendHashs;
         this.compareService = compareService;
+        this.dbService = dbService;
     }
 
     @PostConstruct
@@ -179,6 +184,36 @@ public class MqService {
         }
     }
 
+    @PostConstruct
+    public void initSignatureConsumer() throws ClientException {
+        if (!isServer) {
+            provider = ClientServiceProvider.loadService();
+            clientConfiguration = ClientConfiguration.newBuilder()
+                    .setEndpoints(proxyServerAddress)
+                    .build();
+
+            // 初始化 PushConsumer
+            String topic = "signature";
+            String dbName = compareService.getDatabaseNameFromUrl(url);
+            List<String> tags = compareService.getAllTableNames();
+            for (int index = 0; index < tags.size(); index++) {
+                tags.set(index, dbName + "__" + tags.get(index));
+            }
+            String tagString = String.join("||", tags);
+            FilterExpression filterExpression = new FilterExpression(tagString, FilterExpressionType.TAG);
+
+            signaturePushConsumer = provider.newPushConsumerBuilder()
+                    .setClientConfiguration(clientConfiguration)
+                    .setConsumerGroup("signature_consumer") // 设置 Consumer Group
+                    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+                    .setMessageListener(messageView -> {
+                        processSignatureMessage(messageView);
+                        return ConsumeResult.SUCCESS;
+                    })
+                    .build();
+        }
+    }
+
     public void sendLocalRecordsToRemote() throws ClientException, IOException {
         if (isServer) {
             // 遍历localBinRecords，构建消息，发送到proxyServer,发送后删除
@@ -208,7 +243,8 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        //LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId() + " tag=" + dbAndTable);
+                        // LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId()
+                        // + " tag=" + dbAndTable);
                         // 发送成功后删除
                         records.remove(key);
                     } catch (ClientException e) {
@@ -216,6 +252,62 @@ public class MqService {
                     }
                 }
             }
+        }
+    }
+
+    public void sendSignatureToRemote(String signature, String txId, String dbAndTable)
+            throws ClientException, IOException {
+        if (!isServer) {
+            // Send signature to remote
+            Map<String, String> signatureMap = new HashMap<>();
+            signatureMap.put("signature", signature);
+            signatureMap.put("txId", txId);
+            Kryo kryo = kryoThreadLocal.get();
+            ByteArrayOutputStream byteOut = new ByteArrayOutputStream(); // 重用字节输出流
+            Output output = new Output(byteOut); // 重用 Kryo 的 Output 对象
+            byteOut.reset();
+            kryo.writeObject(output, signatureMap);
+            output.flush();
+            byte[] serializedBytes = byteOut.toByteArray(); // 获取序列化后的字节数组
+            Message message = provider.newMessageBuilder()
+                    .setTopic("signature")
+                    .setTag(dbAndTable)
+                    .setBody(serializedBytes)
+                    .build();
+            try {
+                // 发送消息，需要关注发送结果，并捕获失败等异常。
+                SendReceipt sendReceipt = producer.send(message);
+                // LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId()
+                // + " tag=" + dbAndTable);
+               
+            } catch (ClientException e) {
+                LOG.error("Failed to send message", e);
+            }
+        }
+
+    }
+
+    public void processSignatureMessage(MessageView messageView) {
+        if (isServer) {
+            ByteBuffer body = messageView.getBody();
+            byte[] byteArray = new byte[body.remaining()];
+            body.get(byteArray);
+    
+            // 解析消息为 Map
+            Map<String, String> signatureMap;
+            try {
+                Kryo kryo = kryoThreadLocal.get();
+                Input input = new Input(byteArray);
+                signatureMap = kryo.readObject(input, Map.class);
+                String signature = signatureMap.get("signature");
+                String txId = signatureMap.get("txId");
+                String dbAndTable = messageView.getTag().orElse(null);
+                dbService.updateSignature(signature, txId, dbAndTable);
+            } catch (Exception e) {
+                LOG.error("Failed to deserialize signature message");
+                return;
+            } 
+            
         }
     }
 
@@ -291,8 +383,8 @@ public class MqService {
         LOG.debug("Consume record message successfully, messageId=" + messageView.getMessageId());
         String key = binRecord.getKey();
         compareService.addToRemoteBinRecords(dbName, tableName, key,
-                    new TypeWithTime(binRecord.getTime(), binRecord.getType()));
-            LOG.debug("Local record did not exist, key=" + key);
+                new TypeWithTime(binRecord.getTime(), binRecord.getType()));
+        LOG.debug("Local record did not exist, key=" + key);
     }
 
     /*

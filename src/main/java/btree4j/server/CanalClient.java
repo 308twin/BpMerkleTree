@@ -13,7 +13,7 @@ import com.alibaba.otter.canal.protocol.CanalEntry.RowData;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
-
+// 测试用的简单类 不用了目前
 //@Component
 public class CanalClient implements InitializingBean {
 
