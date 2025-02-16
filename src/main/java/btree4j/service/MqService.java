@@ -13,11 +13,13 @@ import btree4j.entity.ConcurrentLimitedSortedStore;
 import btree4j.entity.HashWithTimestamp;
 import btree4j.entity.TypeWithTime;
 import btree4j.server.DBService;
+import btree4j.server.SignatureService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientConfigurationBuilder;
@@ -78,6 +80,7 @@ public class MqService {
     private ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs;
     private CompareService compareService;
     private DBService dbService;
+    private SignatureService signatureService;
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
@@ -85,7 +88,8 @@ public class MqService {
             @Qualifier("remoteHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> remoteHashs,
             @Qualifier("aboutToSendHashs") ConcurrentHashMap<String, ConcurrentLimitedSortedStore> aboutToSendHashs,
             CompareService compareService,
-            DBService dbService) {
+            DBService dbService,
+            SignatureService signatureService) {
         this.remoteBinRecords = remoteBinRecords;
         this.localBinRecords = localBinRecords;
         this.localHashs = localHashs;
@@ -93,6 +97,7 @@ public class MqService {
         this.aboutToSendHashs = aboutToSendHashs;
         this.compareService = compareService;
         this.dbService = dbService;
+        this.signatureService = signatureService;
     }
 
     @PostConstruct
@@ -248,10 +253,10 @@ public class MqService {
             }
         }
     }
-
-    public void sendSignatureToRemote(String signature, String txId, String dbAndTable)
+    public void sendSignatureToRemote(String canonicalJson, String txId, String dbAndTable)
             throws ClientException, IOException {
         if (!isServer) {
+            String signature = signatureService.signData(dbAndTable, canonicalJson.getBytes(StandardCharsets.UTF_8));
             LOG.info("Start to send signature");
             // Send signature to remote
             HashMap<String, String> signatureMap = new HashMap<>(); // 明确使用HashMap类型
