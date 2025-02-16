@@ -108,18 +108,15 @@ public class MqService {
 
     @PostConstruct
     public void initProducer() throws ClientException {
-        if (isServer) {
-            provider = ClientServiceProvider.loadService();
-            clientConfiguration = ClientConfiguration.newBuilder()
-                    .setEndpoints(proxyServerAddress)
-                    .build();
-            ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
-            ClientConfiguration configuration = builder.build();
-            producer = provider.newProducerBuilder()
-                    .setClientConfiguration(configuration)
-                    .build();
-        }
-
+        provider = ClientServiceProvider.loadService();
+        clientConfiguration = ClientConfiguration.newBuilder()
+                .setEndpoints(proxyServerAddress)
+                .build();
+        ClientConfigurationBuilder builder = ClientConfiguration.newBuilder().setEndpoints(proxyServerAddress);
+        ClientConfiguration configuration = builder.build();
+        producer = provider.newProducerBuilder()
+                .setClientConfiguration(configuration)
+                .build();
     }
 
     @PostConstruct
@@ -345,7 +342,7 @@ public class MqService {
                     try {
                         // 发送消息，需要关注发送结果，并捕获失败等异常。
                         SendReceipt sendReceipt = producer.send(message);
-                        LOG.debug("Send local hash successfully, messageId=" + sendReceipt.getMessageId()
+                        LOG.info("Send local hash successfully, messageId=" + sendReceipt.getMessageId()
                                 + " topic = " + hashTopic
                                 + " tag=" + dbAndTable
                                 + " hash=" + value);
