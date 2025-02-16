@@ -258,6 +258,7 @@ public class MqService {
     public void sendSignatureToRemote(String signature, String txId, String dbAndTable)
             throws ClientException, IOException {
         if (!isServer) {
+            LOG.info("Start to send");
             // Send signature to remote
             Map<String, String> signatureMap = new HashMap<>();
             signatureMap.put("signature", signature);
@@ -275,6 +276,7 @@ public class MqService {
                     .setBody(serializedBytes)
                     .build();
             try {
+                LOG.info("Send signature to remote, dbAndTable=" + dbAndTable + " signature=" + signature);
                 // 发送消息，需要关注发送结果，并捕获失败等异常。
                 SendReceipt sendReceipt = producer.send(message);
                 // LOG.info("Send message successfully, messageId=" + sendReceipt.getMessageId()
@@ -296,6 +298,7 @@ public class MqService {
             // 解析消息为 Map
             Map<String, String> signatureMap;
             try {
+                LOG.info("Consume signature message successfully, messageId=" + messageView.getMessageId());
                 Kryo kryo = kryoThreadLocal.get();
                 Input input = new Input(byteArray);
                 signatureMap = kryo.readObject(input, Map.class);

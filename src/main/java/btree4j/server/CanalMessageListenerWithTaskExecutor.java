@@ -197,6 +197,9 @@ public class CanalMessageListenerWithTaskExecutor {
                 if (rowChange.getEventType() == CanalEntry.EventType.INSERT) {
                     compareService.addToLocalBinRecords(dbName, tableName, tx_id, new TypeWithTime( //这里为了方便，直接复用了TypeWithTime,使用blockAndTx代替time
                         blockAndTx,TypeWithTime.OperationType.INSERT));
+                    // 插入操作是先插入到待插入列表，然后再插入到btree中
+                    compareService.addRecordToInsertRecord(dbName + "__" + tableName,
+                            blockAndTx, tx_id);
                     mqService.sendSignatureToRemote(canonicalJson, tx_id, tableName);
                 }
                 else if (rowChange.getEventType() == CanalEntry.EventType.DELETE) {
@@ -209,7 +212,7 @@ public class CanalMessageListenerWithTaskExecutor {
                         compareService.insertHashToLocalHashs(dbName + "__" + tableName, newestHash);
                 }
                 // 输出或后续处理：可以用于签名、存储、日志打印等
-                System.out.println("数据库：" + dbName + "，表：" + tableName + "，Canonical JSON：" + canonicalJson);
+                //System.out.println("数据库：" + dbName + "，表：" + tableName + "，Canonical JSON：" + canonicalJson);
             }
         } catch (Exception e) {
             e.printStackTrace();
