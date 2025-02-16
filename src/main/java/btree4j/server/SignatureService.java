@@ -51,18 +51,18 @@ public class SignatureService {
             System.out.println("publicKeyFile: " + publicKeyFile);
             if (isServer) {
                 // Server模式：判断公钥是否存在，不存在报错，存在则缓存公钥
-                if (!publicKeyFile.exists()) {
-                    throw new IllegalStateException("Public key not found for table: " + tableName);
-                } else {
-                    try {
-                        byte[] publicKeyBytes = Files.readAllBytes(publicKeyFile.toPath());
-                        KeyFactory keyFactory = KeyFactory.getInstance("EC");
-                        PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(publicKeyBytes));
-                        publicKeyCache.put(tableName, publicKey);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
+                // if (!publicKeyFile.exists()) {
+                //     throw new IllegalStateException("Public key not found for table: " + tableName);
+                // } else {
+                //     try {
+                //         byte[] publicKeyBytes = Files.readAllBytes(publicKeyFile.toPath());
+                //         KeyFactory keyFactory = KeyFactory.getInstance("EC");
+                //         PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(publicKeyBytes));
+                //         publicKeyCache.put(tableName, publicKey);
+                //     } catch (Exception e) {
+                //         e.printStackTrace();
+                //     }
+                // }
             } else {
                 // Client模式：判断私钥是否存在，不存在就创建公私钥对，存在则缓存私钥
                 if (!privateKeyFile.exists()) {

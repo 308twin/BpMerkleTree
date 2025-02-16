@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import btree4j.BTree;
 import btree4j.entity.TypeWithTime;
 import btree4j.service.CompareService;
+import btree4j.service.MqService;
 
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.otter.canal.client.CanalConnector;
@@ -53,7 +54,7 @@ public class CanalMessageListenerWithTaskExecutor {
 
     private final Executor canalTaskExecutor;
     private CompareService compareService;
-    private SignatureService signatureService;
+    private MqService mqService;
 
     private static final Log LOG = LogFactory.getLog(CanalMessageListenerWithTaskExecutor.class);
 
@@ -66,10 +67,11 @@ public class CanalMessageListenerWithTaskExecutor {
     private static final ThreadLocal<TreeMap<String, String>> threadLocalTreeMap = ThreadLocal
             .withInitial(TreeMap::new);
 
-    public CanalMessageListenerWithTaskExecutor(Executor canalTaskExecutor, CompareService compareService, SignatureService signatureService) {
+    public CanalMessageListenerWithTaskExecutor(Executor canalTaskExecutor, CompareService compareService,
+             MqService mqService) {
         this.canalTaskExecutor = canalTaskExecutor;
         this.compareService = compareService;
-        this.signatureService = signatureService;
+        this.mqService = mqService;
     }
 
     @PostConstruct
@@ -195,6 +197,7 @@ public class CanalMessageListenerWithTaskExecutor {
                 if (rowChange.getEventType() == CanalEntry.EventType.INSERT) {
                     compareService.addToLocalBinRecords(dbName, tableName, tx_id, new TypeWithTime( //这里为了方便，直接复用了TypeWithTime,使用blockAndTx代替time
                         blockAndTx,TypeWithTime.OperationType.INSERT));
+                    mqService.sendSignatureToRemote(canonicalJson, tx_id, tableName);
                 }
                 else if (rowChange.getEventType() == CanalEntry.EventType.DELETE) {
                     compareService.addToLocalBinRecords(dbName, tableName, tx_id, new TypeWithTime(
