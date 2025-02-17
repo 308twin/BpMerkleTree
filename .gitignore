@@ -45,4 +45,5 @@ target
 
 *.idx
 *.yml
+*.gz 
 src/main/resources/application.yml
