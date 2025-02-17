@@ -21,7 +21,7 @@ public class SignatureUpdateQueue {
     private final Queue<SignatureUpdate> delayedUpdates = new ConcurrentLinkedQueue<>();
     private final JdbcTemplate jdbcTemplate;
     private final ScheduledExecutorService scheduler;
-    private static final int BATCH_SIZE = 100;
+    private static final int BATCH_SIZE = 1000;
     private static final int MAX_RETRY = 10;
     private static final int RETRY_DELAY_SECONDS = 30;
 
@@ -94,7 +94,7 @@ public class SignatureUpdateQueue {
                 // 处理不存在的记录
                 if (!delayedUpdates.isEmpty()) {
                     this.delayedUpdates.addAll(delayedUpdates);
-                    LOG.info(delayedUpdates.size() + " records not found for table " + tableName + ", moved to delayed queue");
+                    //LOG.info(delayedUpdates.size() + " records not found for table " + tableName + ", moved to delayed queue");
                 }
 
             } catch (Exception e) {
@@ -110,29 +110,38 @@ public class SignatureUpdateQueue {
 
     private void processDelayedUpdates() {
         List<SignatureUpdate> toRetry = new ArrayList<>();
+        List<SignatureUpdate> notReadyUpdates = new ArrayList<>();
         long now = System.currentTimeMillis();
-
-        while (!delayedUpdates.isEmpty()) {
-            SignatureUpdate update = delayedUpdates.poll();
-            if (update == null) continue;
-
+        
+        SignatureUpdate update;
+        while ((update = delayedUpdates.poll()) != null) {
             // 检查是否应该重试
             if (now - update.lastRetryTime >= TimeUnit.SECONDS.toMillis(RETRY_DELAY_SECONDS)) {
                 if (update.retryCount < MAX_RETRY) {
                     update.retryCount++;
                     update.lastRetryTime = now;
                     toRetry.add(update);
+                    //LOG.info("Moving update to retry queue: " + update.txId + ", retry count: " + update.retryCount);
                 } else {
                     LOG.error("Max retry exceeded for signature update: " + update.txId);
                 }
             } else {
-                // 还没到重试时间，放回队列
-                delayedUpdates.offer(update);
+                // 还没到重试时间，先收集起来
+                notReadyUpdates.add(update);
             }
         }
 
+        // 将没到重试时间的更新重新放回延迟队列
+        if (!notReadyUpdates.isEmpty()) {
+            delayedUpdates.addAll(notReadyUpdates);
+            //LOG.info("Kept " + notReadyUpdates.size() + " updates in delayed queue");
+        }
+
         // 将需要重试的更新放回待处理队列
-        pendingUpdates.addAll(toRetry);
+        if (!toRetry.isEmpty()) {
+            pendingUpdates.addAll(toRetry);
+            //LOG.info("Moved " + toRetry.size() + " updates to pending queue");
+        }
     }
 
     private static class SignatureUpdate {
