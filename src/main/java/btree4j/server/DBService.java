@@ -17,6 +17,8 @@ import org.apache.commons.logging.LogFactory;
 public class DBService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private SignatureUpdateQueue signatureUpdateQueue;
     // 用于缓存SQL语句的线程安全队列
     private final Queue<String> sqlCache = new ConcurrentLinkedQueue<>();
     // 用于存储执行失败的SQL语句的线程安全队列
@@ -101,10 +103,8 @@ public class DBService {
     }
 
 
-    public void updateSignature(String signature,String txId,String tableName) {
-        String sql = "UPDATE " + tableName + " SET signature = '" + signature + "' WHERE tx_id = '" + txId + "'";
-        logger.info(sql);
-        addSQL(sql);
+    public void updateSignature(String signature, String txId, String tableName) {
+        signatureUpdateQueue.addUpdate(signature, txId, tableName);
     }
     // 内部类用于存储失败的SQL和重试次数
     private static class FailedSQL {

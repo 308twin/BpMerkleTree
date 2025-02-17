@@ -17,7 +17,6 @@ import btree4j.server.SignatureService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -33,15 +32,21 @@ import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.apis.producer.Producer;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.common.TopicConfig;
-import org.apache.rocketmq.shaded.com.google.protobuf.Timestamp;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.PreDestroy;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Service
 public class MqService {
@@ -81,6 +86,28 @@ public class MqService {
     private CompareService compareService;
     private DBService dbService;
     private SignatureService signatureService;
+
+    // 修改线程池定义
+    private final ScheduledExecutorService scheduledExecutor = new ScheduledThreadPoolExecutor(
+        Runtime.getRuntime().availableProcessors() * 2,
+        new ThreadFactory() {
+            private final AtomicInteger counter = new AtomicInteger(1);
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r, "SignatureProcessor-" + counter.getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
+            }
+        },
+        new RejectedExecutionHandler() {
+            @Override
+            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                // 当任务被拒绝时，在调用线程中直接执行
+                LOG.warn("Thread pool overloaded, executing task in caller thread");
+                r.run();
+            }
+        }
+    );
 
     public MqService(ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> remoteBinRecords,
             ConcurrentHashMap<String, ConcurrentHashMap<String, TypeWithTime>> localBinRecords,
@@ -297,9 +324,9 @@ public class MqService {
         
                 Kryo kryo = kryoThreadLocal.get();
                 Input input = new Input(byteArray);
-                HashMap<String, String> signatureMap = kryo.readObject(input, HashMap.class); // 明确使用HashMap类型
+                HashMap<String, String> signatureMap = kryo.readObject(input, HashMap.class);
                 
-                LOG.info("Deserialized signature map: " + signatureMap); // 添加日志
+                LOG.info("Deserialized signature map: " + signatureMap);
                 
                 String signature = signatureMap.get("signature");
                 String txId = signatureMap.get("txId");
@@ -310,11 +337,23 @@ public class MqService {
                     return;
                 }
                 
-                dbService.updateSignature(signature, txId, dbAndTable);
-                LOG.info("Successfully processed signature message for dbAndTable=" + dbAndTable);
+                // 使用线程池延迟执行更新操作
+                final String finalSignature = signature;
+                final String finalTxId = txId;
+                final String finalDbAndTable = dbAndTable;
+                
+                scheduledExecutor.schedule(() -> {
+                    try {
+                        dbService.updateSignature(finalSignature, finalTxId, finalDbAndTable);
+                        LOG.info("Successfully processed signature message for dbAndTable=" + finalDbAndTable);
+                    } catch (Exception e) {
+                        LOG.error("Failed to update signature", e);
+                    }
+                }, 3, TimeUnit.SECONDS);
+                
             } catch (Exception e) {
                 LOG.error("Failed to deserialize signature message", e);
-                e.printStackTrace(); // 打印完整堆栈跟踪
+                e.printStackTrace();
             }
         }
     }
@@ -455,6 +494,20 @@ public class MqService {
                             + ", type: " + typeWithTime.getType());
                 }
             }
+        }
+    }
+
+    // 在类的销毁方法中添加线程池关闭逻辑
+    @PreDestroy
+    public void destroy() {
+        try {
+            scheduledExecutor.shutdown();
+            if (!scheduledExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduledExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduledExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 }
