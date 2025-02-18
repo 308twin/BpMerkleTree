@@ -49,6 +49,9 @@ public class CanalMessageListenerWithTaskExecutor {
     @Value("${canal.subscription}")
     private String subscription;
 
+    @org.springframework.beans.factory.annotation.Value("${my.custom.config.usingBPTree}")
+    private boolean usingBPTree;
+
     private CanalConnector connector;
     private volatile boolean running = true;
 
@@ -68,7 +71,7 @@ public class CanalMessageListenerWithTaskExecutor {
             .withInitial(TreeMap::new);
 
     public CanalMessageListenerWithTaskExecutor(Executor canalTaskExecutor, CompareService compareService,
-             MqService mqService) {
+            MqService mqService) {
         this.canalTaskExecutor = canalTaskExecutor;
         this.compareService = compareService;
         this.mqService = mqService;
@@ -162,6 +165,7 @@ public class CanalMessageListenerWithTaskExecutor {
                 String tx_id = null;
                 String block = null;
                 String tx_num = null;
+                String verify_hash = null;
 
                 // 这里可以排除 signature、verify_hash 等字段
                 for (CanalEntry.Column column : rowData.getAfterColumnsList()) {
@@ -178,6 +182,9 @@ public class CanalMessageListenerWithTaskExecutor {
                     if ("tx_num".equalsIgnoreCase(columnName)) {
                         tx_num = column.getValue();
                     }
+                    if ("verify_hash".equalsIgnoreCase(columnName)) {
+                        verify_hash = column.getValue();
+                    }
                     // 统一转换字段值
                     canonicalJsonMap.put(columnName, normalizeValue(column.getValue()));
                     /*
@@ -191,20 +198,26 @@ public class CanalMessageListenerWithTaskExecutor {
                      */
                 }
                 Long blockAndTx = Long.parseLong(block) * 100000 + Long.parseLong(tx_num);
-                
+
                 // 生成 Canonical JSON 字符串，ObjectMapper 会保证字段顺序和格式一致
                 String canonicalJson = objectMapper.writeValueAsString(canonicalJsonMap);
                 if (rowChange.getEventType() == CanalEntry.EventType.INSERT) {
-                    compareService.addToLocalBinRecords(dbName, tableName, tx_id, new TypeWithTime( //这里为了方便，直接复用了TypeWithTime,使用blockAndTx代替time
-                        blockAndTx,TypeWithTime.OperationType.INSERT));
+                    compareService.addToLocalBinRecords(dbName, tableName, tx_id, new TypeWithTime( // 这里为了方便，直接复用了TypeWithTime,使用blockAndTx代替time
+                            blockAndTx, TypeWithTime.OperationType.INSERT));
                     // 插入操作是先插入到待插入列表，然后再插入到btree中
-                    compareService.addRecordToInsertRecord(dbName + "__" + tableName,
-                            blockAndTx, tx_id);
+                    if (usingBPTree) {
+                        // 如果是利用BP-Merkle Tree校验，则将记录插入到待插入列表
+                        compareService.addRecordToInsertRecord(dbName + "__" + tableName,
+                                blockAndTx, tx_id);
+                    } else {
+                        // 如果使用同步服务生成的增量哈希校验，则直接插入本地哈希缓存
+                        compareService.insertIncrementalHashToLocalHashs(dbName + "__" + tableName, tx_id, blockAndTx);
+                    }
+
                     mqService.sendSignatureToRemote(canonicalJson, tx_id, tableName);
-                }
-                else if (rowChange.getEventType() == CanalEntry.EventType.DELETE) {
+                } else if (rowChange.getEventType() == CanalEntry.EventType.DELETE) {
                     compareService.addToLocalBinRecords(dbName, tableName, tx_id, new TypeWithTime(
-                            blockAndTx,TypeWithTime.OperationType.DELETE));
+                            blockAndTx, TypeWithTime.OperationType.DELETE));
                     // 由于删除操作很少进行，所以直接删除
                     String newestHash = compareService.removeKeyFromBtree(dbName + "__" +
                             tableName, tx_id, blockAndTx);
@@ -212,7 +225,8 @@ public class CanalMessageListenerWithTaskExecutor {
                         compareService.insertHashToLocalHashs(dbName + "__" + tableName, newestHash);
                 }
                 // 输出或后续处理：可以用于签名、存储、日志打印等
-                //System.out.println("数据库：" + dbName + "，表：" + tableName + "，Canonical JSON：" + canonicalJson);
+                // System.out.println("数据库：" + dbName + "，表：" + tableName + "，Canonical JSON：" +
+                // canonicalJson);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -230,7 +244,6 @@ public class CanalMessageListenerWithTaskExecutor {
         // 根据需要对数值、日期等进行格式化处理
         return value.trim();
     }
-    
 
     @PreDestroy
     public void stop() {

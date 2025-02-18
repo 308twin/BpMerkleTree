@@ -20,6 +20,11 @@ public class BPMerkleTreeSchedule {
     @org.springframework.beans.factory.annotation.Value("${my.custom.config.isServer}")
     private boolean isServer;
 
+    @org.springframework.beans.factory.annotation.Value("${my.custom.config.usingBPTree}")
+    private boolean usingBPTree;
+
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(BPMerkleTreeSchedule.class);
+
     private ConcurrentHashMap<String,ConcurrentLimitedSortedStore> aboutToInsertRecord;
     private CompareService compareService;
     private MqService   mqService;
@@ -34,6 +39,9 @@ public class BPMerkleTreeSchedule {
 
     @Scheduled(fixedRate = 1000)
     public void buildTree(){
+        if(!usingBPTree)
+            return;
+
         Long curTimestamp = System.currentTimeMillis();
         // 遍历aboutToInsertRecord，将其中的key插入到btree中
         for (Map.Entry<String,ConcurrentLimitedSortedStore> entry : aboutToInsertRecord.entrySet()){
@@ -41,7 +49,7 @@ public class BPMerkleTreeSchedule {
             ConcurrentLimitedSortedStore value = entry.getValue();
             for (Map.Entry<String,Long> entry1 : value.entrySet()){
                 try {
-                    System.out.println("insert key to btree:"+entry1.getKey());
+                    LOG.debug("insert key to btree:"+entry1.getKey());
                     compareService.insertKeyToBtree(dbAndTable,entry1.getKey(),entry1.getValue());
                     value.remove(entry1.getKey());
                     String newestHash = compareService.getBTreeRootMerkleHash(dbAndTable);

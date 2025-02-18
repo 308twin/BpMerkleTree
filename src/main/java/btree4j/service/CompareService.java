@@ -112,6 +112,18 @@ public class CompareService {
         aboutToSendHistorys.put(hash, time);
     }
 
+    public void insertIncrementalHashToLocalHashs(String dbAndTable, String hash,Long blockAndTx) {
+        LOG.debug("insertIncrementalHashToLocalHashs dbAndTable:" + dbAndTable + ",hash:" + hash);
+        ConcurrentLimitedSortedStore tableHashHistorys = localHashs.computeIfAbsent(dbAndTable,
+                k -> new ConcurrentLimitedSortedStore(localHashMapMaxSize));
+
+        ConcurrentLimitedSortedStore aboutToSendHistorys = aboutToSendHashs.computeIfAbsent(dbAndTable,
+                k -> new ConcurrentLimitedSortedStore(localHashMapMaxSize));
+
+        tableHashHistorys.put(hash, blockAndTx);
+        aboutToSendHistorys.put(hash, blockAndTx);
+    }
+
     public synchronized void insertKeyToBtree(String dbAndTable, String value, long time) throws BTreeException {
         BTree btree = getBTree(dbAndTable);
         Value k = new Value(value);

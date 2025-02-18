@@ -15,7 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.nio.file.Path;
 import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
-import java.io.File;;
+import java.io.File;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @Service
 public class SignatureService {
@@ -167,52 +171,43 @@ public class SignatureService {
         return keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
     }
 
-    // /**
-    //  * 测试方法：
-    //  * 从 fabric_test_channel 表读取公私钥，使用私钥对数据进行签名，
-    //  * 并使用公钥验证签名的有效性。
-    //  */
-    // public void testSignature() {
-    //     String tableName = "fabric_test_channel";
-        
-    //     ChainEventMessage chainEventMessage = new ChainEventMessage();
-    //     String uuid = UUID.randomUUID().toString();
-    //     Long curTime = System.currentTimeMillis();
-    //     chainEventMessage.setKey(uuid);
-    //     chainEventMessage.setChainType("fabric");
-    //     chainEventMessage.setChannelName("test_channel");
-    //     chainEventMessage.setValue(uuid);
-    //     chainEventMessage.setOperationType((byte) 1);
-    //     chainEventMessage.setUpdateTime(curTime);
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+            .disable(SerializationFeature.INDENT_OUTPUT)
+            .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
-    //     byte[] data = chainEventMessage.toBytes();
-    //     try {
-    //         // 获取私钥和公钥
-    //         PrivateKey privateKey = loadPrivateKey(Paths.get(keyPath + "/" + tableName + "_private.key"));
-    //         PublicKey publicKey = publicKeyCache.get(tableName);
-    //         if (privateKey == null) {
-    //             throw new IllegalStateException("未找到表的私钥: " + tableName);
-    //         }
-    //         if (publicKey == null) {
-    //             throw new IllegalStateException("未找到表的公钥: " + tableName);
-    //         }
+    // 使用 ThreadLocal 缓存 TreeMap 实例
+    private static final ThreadLocal<TreeMap<String, String>> threadLocalTreeMap = ThreadLocal
+            .withInitial(TreeMap::new);
 
-    //         // 使用私钥签名
-    //         Signature signer = Signature.getInstance("SHA256withECDSA");
-    //         signer.initSign(privateKey);
-    //         signer.update(data);
-    //         byte[] signatureBytes = signer.sign();
-    //         String signatureBase64 = Base64.getEncoder().encodeToString(signatureBytes);
-    //         System.out.println("签名 (Base64): " + signatureBase64);
+    // 验证数据库记录的签名
+    public boolean verifyDatabaseRecord(String tableName, Map<String, Object> record, String signatureBase64) {
+        try {
+            // 获取线程内复用的 TreeMap 并清空旧数据
+            TreeMap<String, String> canonicalJsonMap = threadLocalTreeMap.get();
+            canonicalJsonMap.clear();
 
-    //         // 使用公钥验证签名
-    //         Signature verifier = Signature.getInstance("SHA256withECDSA");
-    //         verifier.initVerify(publicKey);
-    //         verifier.update(data);
-    //         boolean isValid = verifier.verify(signatureBytes);
-    //         System.out.println("签名验证结果: " + isValid);
-    //     } catch (Exception e) {
-    //         e.printStackTrace();
-    //     }
-    // }
+            // 过滤和标准化数据
+            for (Map.Entry<String, Object> entry : record.entrySet()) {
+                String columnName = entry.getKey();
+                // 排除签名相关字段
+                if ("signature".equalsIgnoreCase(columnName) || "verify_hash".equalsIgnoreCase(columnName)) {
+                    continue;
+                }
+                // 统一转换字段值
+                String value = entry.getValue() == null ? "" : entry.getValue().toString().trim();
+                canonicalJsonMap.put(columnName, value);
+            }
+
+            // 生成规范的 JSON 字符串
+            String canonicalJson = objectMapper.writeValueAsString(canonicalJsonMap);
+            byte[] data = canonicalJson.getBytes(StandardCharsets.UTF_8);
+            byte[] signatureBytes = Base64.getDecoder().decode(signatureBase64);
+
+            // 验证签名
+            return verifySignature(tableName, data, signatureBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
