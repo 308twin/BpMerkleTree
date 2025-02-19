@@ -157,6 +157,21 @@ public class SignatureService {
         }
     }
 
+    // 获取指定表的公钥（Base64编码）
+    public String getPublicKeyBase64(String tableName) {
+        try {
+            File publicKeyFile = new File(keyPath + "/" + tableName + "_public.key");
+            if (!publicKeyFile.exists()) {
+                throw new IllegalStateException("Public key not found for table: " + tableName);
+            }
+            byte[] publicKeyBytes = Files.readAllBytes(publicKeyFile.toPath());
+            return Base64.getEncoder().encodeToString(publicKeyBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     // 辅助方法：加载公钥
     private PublicKey loadPublicKey(Path path) throws Exception {
         byte[] publicKeyBytes = Files.readAllBytes(path);
