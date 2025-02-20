@@ -68,7 +68,7 @@ public class SignatureService {
                 //     }
                 // }
             } else {
-                // Client模式：判断私钥是否存在，不存在就创建公私钥对，存在则缓存私钥
+                // Client模式：判断私钥是否存在，不存在就创建公私钥对，存在则缓存公私钥
                 if (!privateKeyFile.exists()) {
                     generateKeyPair(tableName);
                 } else {
@@ -77,12 +77,19 @@ public class SignatureService {
                         KeyFactory keyFactory = KeyFactory.getInstance("EC");
                         PrivateKey privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
                         privateKeyCache.put(tableName, privateKey);
+
+                        byte[] publicKeyBytes = Files.readAllBytes(publicKeyFile.toPath());
+                        PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(publicKeyBytes));
+                        publicKeyCache.put(tableName, publicKey);
+
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
             }
         }
+
+        //testVerifyTransactionSignature("supervise_online_vehicle", "17ed0d9d591161beca121aa28232395f661dab51d9fd401488c11101b6fd7df2");
     }
 
     // 生成密钥对并保存到文件
@@ -139,7 +146,14 @@ public class SignatureService {
             return null;
         }
     }
+    public PublicKey getPublicKey(String tableName){
 
+        PublicKey publicKey = publicKeyCache.get(tableName);
+        if (publicKey == null) {
+            throw new IllegalStateException("Public key not found for table: " + tableName);
+        }
+        return publicKey;
+    }
     // 使用公钥验证签名
     public boolean verifySignature(String tableName, byte[] data, byte[] signatureBytes) {
         try {
@@ -225,4 +239,35 @@ public class SignatureService {
             return false;
         }
     }
+
+    // 测试方法：验证指定交易的签名
+    public boolean testVerifyTransactionSignature(String tableName, String txId) {
+        try {
+            // 通过 DBService 查询指定 txId 的记录
+            Map<String, Object> record = dbService.getRecordByTxId(tableName, txId);
+            if (record == null || record.isEmpty()) {
+                System.out.println("未找到交易记录: " + txId);
+                return false;
+            }
+
+            // 获取记录中的签名
+            String signatureBase64 = (String) record.get("signature");
+            if (signatureBase64 == null || signatureBase64.isEmpty()) {
+                System.out.println("记录中未包含签名信息");
+                return false;
+            }
+
+            // 验证签名
+            boolean isValid = verifyDatabaseRecord(tableName, record, signatureBase64);
+            
+            // 打印验证结果
+            System.out.println("交易 " + txId + " 的签名验证结果: " + (isValid ? "有效" : "无效"));
+            return isValid;
+        } catch (Exception e) {
+            System.err.println("验证签名时发生错误: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 }

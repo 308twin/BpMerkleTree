@@ -5,6 +5,9 @@ import org.springframework.web.bind.annotation.RestController;
 import btree4j.service.CompareService;
 import btree4j.server.SignatureService;
 
+import java.security.PublicKey;
+import java.util.Base64;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +29,13 @@ public class CompareController {
 
     @GetMapping("/api/getPublicKey")
     public String getPublicKey(@RequestParam String tableName) {
-        return signatureService.getPublicKeyBase64(tableName);
+        try {
+            PublicKey publicKey = signatureService.getPublicKey(tableName);
+            return Base64.getEncoder().encodeToString(publicKey.getEncoded());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
+    
 }

@@ -1,6 +1,7 @@
 package btree4j.server;
 import java.util.List;
 import java.util.Queue;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -102,6 +103,22 @@ public class DBService {
         }
     }
 
+    /**
+     * 根据交易ID查询记录
+     * @param tableName 表名
+     * @param txId 交易ID
+     * @return 包含所有字段的Map，如果未找到则返回null
+     */
+    public Map<String, Object> getRecordByTxId(String tableName, String txId) {
+        String sql = String.format("SELECT * FROM %s WHERE tx_id = ?", tableName);
+        try {
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, txId);
+            return results.isEmpty() ? null : results.get(0);
+        } catch (Exception e) {
+            logger.error("查询交易记录失败: " + e.getMessage(), e);
+            return null;
+        }
+    }
 
     public void updateSignature(String signature, String txId, String tableName) {
         signatureUpdateQueue.addUpdate(signature, txId, tableName);
