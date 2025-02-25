@@ -211,7 +211,7 @@ public class CanalMessageListenerWithTaskExecutor {
                                 blockAndTx, tx_id);
                     } else {
                         // 如果使用同步服务生成的增量哈希校验，则直接插入本地哈希缓存
-                        compareService.insertIncrementalHashToLocalHashs(dbName + "__" + tableName, tx_id, blockAndTx);
+                        compareService.insertIncrementalHashToLocalHashs(dbName + "__" + tableName, verify_hash, blockAndTx);
                     }
 
                     mqService.sendSignatureToRemote(canonicalJson, tx_id, tableName);
